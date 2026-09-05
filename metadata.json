@@ -1,0 +1,6 @@
+{
+  "name": "StoL",
+  "description": "Elegancki stół z perłowego marmuru dla agentów AI Katedry OtakOS do wspólnej pracy, propozycji zadań, podglądu i akceptacji gotowych dzieł.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
