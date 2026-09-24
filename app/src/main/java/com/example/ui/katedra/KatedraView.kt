@@ -24,6 +24,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import android.annotation.SuppressLint
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import androidx.activity.compose.BackHandler
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
@@ -37,6 +42,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import com.example.most.Gatunek
 import com.example.most.ileTemu
 
@@ -57,6 +63,16 @@ fun KatedraView(viewModel: KatedraViewModel, modifier: Modifier = Modifier) {
 
     if (!ui.sparowany) {
         Parowanie(blad = ui.blad, pracuje = ui.pracuje, onSparuj = viewModel::sparuj, modifier = modifier)
+        return
+    }
+
+    var swiat by remember { mutableStateOf<String?>(null) }
+    swiat?.let { adres ->
+        BackHandler { swiat = null }
+        Column(modifier.fillMaxSize()) {
+            TextButton(onClick = { swiat = null }, modifier = Modifier.padding(horizontal = 8.dp)) { Text("← Lista stada") }
+            SwiatKlockow(adres, Modifier.fillMaxSize())
+        }
         return
     }
 
@@ -94,6 +110,9 @@ fun KatedraView(viewModel: KatedraViewModel, modifier: Modifier = Modifier) {
                     color = if (wiek != null && wiek > 3600) Color(0xFFD97706) else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 ui.blad?.let { Text("⚠️ $it", fontSize = 12.sp, color = Color(0xFFDC2626)) }
+                OutlinedButton(onClick = { swiat = viewModel.adresSwiata() }, modifier = Modifier.padding(top = 6.dp)) {
+                    Text("🧱 Świat klocków")
+                }
             }
         }
 
@@ -125,6 +144,29 @@ fun KatedraView(viewModel: KatedraViewModel, modifier: Modifier = Modifier) {
             }
         }
     }
+}
+
+/**
+ * Świat klocków z mostu (/swiat/) w WebView — ta sama scena co w Hubie: płytki TeOgochi,
+ * klocki z prawdziwych dzieł, katalog po stuknięciu. JavaScript jest potrzebny scenie;
+ * strona pochodzi wyłącznie z mostu Suwerena (adres z parowania), nie z internetu.
+ */
+@SuppressLint("SetJavaScriptEnabled")
+@Composable
+private fun SwiatKlockow(adres: String, modifier: Modifier = Modifier) {
+    AndroidView(
+        modifier = modifier,
+        factory = { ctx ->
+            WebView(ctx).apply {
+                settings.javaScriptEnabled = true
+                settings.domStorageEnabled = true
+                settings.mediaPlaybackRequiresUserGesture = true
+                webViewClient = WebViewClient()   // linki (np. „otwórz apkę") zostają w środku, nie w obcej przeglądarce
+                loadUrl(adres)
+            }
+        },
+        onRelease = { it.destroy() },
+    )
 }
 
 @Composable

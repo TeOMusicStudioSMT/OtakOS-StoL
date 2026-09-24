@@ -15,6 +15,14 @@ import java.net.URLEncoder
  *
  * Kod wymienia się na TOKEN urządzenia; od tej chwili apka niesie klucz + token.
  */
+/**
+ * Adres świata klocków (strona mostu `/swiat/`, pokazywana w WebView).
+ * Klucz i token jadą we FRAGMENCIE (#…) — fragment nie wychodzi w żądaniu HTTP,
+ * więc nie ląduje w logach tunelu ani mostu; strona sama dokłada je do zapytań.
+ */
+fun adresSwiata(adres: String, klucz: String, token: String): String =
+    "${adres.trimEnd('/')}/swiat/#k=${URLEncoder.encode(klucz, "UTF-8")}&t=${URLEncoder.encode(token, "UTF-8")}"
+
 data class LinkParowania(val adres: String, val klucz: String, val kod: String) {
 
     fun doTekstu(): String =

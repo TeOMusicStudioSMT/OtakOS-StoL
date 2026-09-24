@@ -131,6 +131,9 @@ class KatedraViewModel(application: Application) : AndroidViewModel(application)
         _ui.update { it.copy(naZywo = false) }
     }
 
+    /** Adres świata klocków dla WebView — albo null, gdy telefon nie jest sparowany. */
+    fun adresSwiata(): String? = store.wczytaj()?.let { com.example.most.adresSwiata(it.adres, it.klucz, it.token) }
+
     fun rozparuj() {
         zatrzymajObserwacje()
         store.zapomnij()

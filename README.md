@@ -15,6 +15,11 @@ Tylko obserwacja: telefon patrzy, niczego w Katedrze nie zmienia.
   Wyklute TeOgochi z etapem, XP i kolorem
   z Katedry, **co ostatnio zrobiły** (fakty z szyny zdarzeń mostu), jaja, świeżość migawki.
   Gdy agent milczy, ekran mówi „cisza” — nic nie jest zmyślane.
+- **🧱 Świat klocków** (przycisk w zakładce Katedra): scena z mostu (`/swiat/`) w WebView —
+  każdy TeOgochi ma swoją płytkę LEGO, a na niej klocek za każde **prawdziwe dzieło** z dysku
+  Katedry (utwory Joanny, filmy Klatki, odcinki Reżysera, apki i gry Kodeksa, modele 3D…).
+  Zdarzenie z szyny → figurka podskakuje, dymek mówi, co zrobiła. Stuknięcie w płytkę →
+  katalog: dzieła z podglądem (odsłuch, film, obraz, „otwórz apkę”) i ślady.
 - Odłączenie telefonu: w apce albo w karcie StoL w Katedrze.
 
 Rdzeń połączenia (`app/src/main/java/com/example/most/`) to czysty Kotlin bez Androida:
@@ -35,8 +40,9 @@ ma swój sandbox, swój mały świat, i buduje go narzędziami Katedry. Świat s
 który sami tworzą. Na smartfonie — moduł obserwacji.
 
 Droga od tego, co jest, do wizji: migawka stada + szyna zdarzeń (jest) → strumień zdarzeń
-zamiast odpytywania (jest) → „klocki” jako artefakty agentów (pliki, sceny, utwory z mostu) →
-scena, na której się układają.
+zamiast odpytywania (jest) → klocki jako prawdziwe dzieła agentów (jest) → scena, na której
+się układają (jest, 2D izometrycznie) → dalej: bryły z Assety3D (GLB) jako klocki 3D,
+film klockowy (odtwarzanie dnia z szyny), Delegat w świecie (rozmowa z TeOgochi z płytki).
 
 ## Budowanie
 
