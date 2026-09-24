@@ -32,6 +32,13 @@ class LinkParowaniaTest {
         assertEquals(LinkParowania("https://ciche-lodzie-gra.trycloudflare.com", "065c105e6eab46998c0e651dbc85df66a82f1b2c3d4e5f60", "012345"), l)
     }
 
+    @Test fun adresSwiataNiesieKluczITokenWeFragmencie() {
+        assertEquals(
+            "https://x.trycloudflare.com/swiat/#k=abc%2B%2F&t=E_GO-ut2",
+            adresSwiata("https://x.trycloudflare.com/", "abc+/", "E_GO-ut2"),
+        )
+    }
+
     @Test fun normalizujeAdres() {
         assertEquals("https://x.trycloudflare.com", LinkParowania.normalizujAdres(" x.trycloudflare.com/ "))
         assertEquals("http://192.168.1.5:3001", LinkParowania.normalizujAdres("http://192.168.1.5:3001/api/bridge/execute"))
