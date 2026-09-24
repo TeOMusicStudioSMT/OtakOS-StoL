@@ -37,6 +37,24 @@ data class StanStada(
 ) {
     val wyklute: List<Gatunek> get() = gatunki.filter { it.wyklute }
 
+    /**
+     * Nałóż zdarzenie ze strumienia na stan — ta sama zasada co w moście (stanDlaApki):
+     * agent pasuje do gatunku po imieniu albo id (bez wielkości liter); aktywność trzyma
+     * ostatni ślad każdego agenta, najnowsze pierwsze.
+     */
+    fun zZdarzeniem(z: ZdarzenieSzyny, teraz: Long = System.currentTimeMillis()): StanStada {
+        val kto = z.agent.lowercase()
+        if (kto.isBlank()) return this
+        val kiedy = z.kiedy?.let(::czasIso) ?: teraz
+        val tresc = z.tresc.ifBlank { z.rodzaj }.take(160)
+        return copy(
+            gatunki = gatunki.map { g ->
+                if (g.imie.lowercase() == kto || g.id.lowercase() == kto) g.copy(robi = tresc, robiOd = kiedy) else g
+            },
+            aktywnosc = listOf(Aktywnosc(kto, z.rodzaj, z.tresc, kiedy)) + aktywnosc.filter { it.kto != kto },
+        )
+    }
+
     companion object {
         fun zJson(m: Map<String, Any?>): StanStada {
             val migawka = m.obiekt("migawka")
@@ -72,6 +90,16 @@ data class StanStada(
         }
     }
 }
+
+/**
+ * Czas ISO z mostu (`2026-09-24T21:38:04.234Z`, zawsze UTC) → ms epoki.
+ * SimpleDateFormat, nie java.time: StoL ma minSdk 24, a java.time jest od API 26.
+ */
+fun czasIso(iso: String): Long? = runCatching {
+    val f = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.ROOT)
+    f.timeZone = java.util.TimeZone.getTimeZone("UTC")
+    f.parse(iso)?.time
+}.getOrNull()
 
 /** „przed chwilą", „12 min temu", „3 h temu" — do napisu „migawka sprzed…". */
 fun ileTemu(sekundy: Long): String = when {
