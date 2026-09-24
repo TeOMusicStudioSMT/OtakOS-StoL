@@ -27,6 +27,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Bolt
@@ -93,6 +94,8 @@ import com.example.ui.components.NewProposalDialog
 import com.example.ui.components.RatificationActionDialog
 import com.example.ui.components.RatificationView
 import com.example.ui.components.SpatialMarbleTable
+import com.example.ui.katedra.KatedraView
+import com.example.ui.katedra.KatedraViewModel
 import com.example.ui.components.TableLightingMode
 import com.example.ui.model.OtakAgent
 import com.example.ui.model.OtakDepartment
@@ -101,6 +104,7 @@ import com.example.ui.model.OtakDepartment
 @Composable
 fun StolApp(
     viewModel: StolViewModel,
+    katedraViewModel: KatedraViewModel,
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -210,6 +214,7 @@ fun StolApp(
                         onOpenRatificationAction = { viewModel.openRatificationAction(it) }
                     )
                     2 -> HistoryView(logs = allLogs)
+                    4 -> KatedraView(viewModel = katedraViewModel)
                     3 -> AgentsView(
                         artifacts = allArtifacts,
                         onSelectAgentArtifacts = { agentName ->
@@ -978,6 +983,15 @@ private fun StolNavigationBar(
             icon = { Icon(imageVector = Icons.Default.Psychology, contentDescription = "Agenci") },
             label = { Text("Agenci", fontSize = 11.sp) },
             modifier = Modifier.testTag("nav_tab_agents")
+        )
+
+        // Prawdziwe stado z mostu Katedry (parowanie + obserwacja). Pozostałe zakładki to szkic stołu.
+        NavigationBarItem(
+            selected = selectedTab == 4,
+            onClick = { onSelectTab(4) },
+            icon = { Icon(imageVector = Icons.Default.AccountBalance, contentDescription = "Katedra") },
+            label = { Text("Katedra", fontSize = 11.sp) },
+            modifier = Modifier.testTag("nav_tab_katedra")
         )
     }
 }
