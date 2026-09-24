@@ -73,3 +73,24 @@ class StanStadaTest {
         assertNotNull(s.powod)
     }
 }
+
+class SseTest {
+    @Test fun skladaRamkiIPomijaPuls() {
+        val ramki = mutableListOf<Pair<String, String>>()
+        val p = SseParser { z, d -> ramki += z to d }
+        listOf(": strumien otwarty", "", "event: stan", "data: {\"a\":1}", "", ": puls", "", "event: szyna", "data: x", "data: y", "").forEach(p::linia)
+        assertEquals(listOf("stan" to "{\"a\":1}", "szyna" to "x\ny"), ramki)
+    }
+
+    @Test fun zdarzenieUstawiaRobiINajnowszySlad() {
+        @Suppress("UNCHECKED_CAST")
+        val s = StanStada.zJson(Json.parsuj("""{"gatunki":[{"id":"joanna","imie":"Joanna","wyklute":true},{"id":"kodeks","imie":"Kodeks","wyklute":true}],
+            "aktywnosc":[{"kto":"joanna","ts":1,"tresc":"stare"},{"kto":"kodeks","ts":2,"tresc":"k"}]}""") as Map<String, Any?>)
+        val po = s.zZdarzeniem(ZdarzenieSzyny(5, "2026-09-24T21:38:04.234Z", "Joanna", "praca", "ballada"))
+        assertEquals("ballada", po.gatunki.first { it.id == "joanna" }.robi)
+        assertEquals(1790285884234L, po.gatunki.first { it.id == "joanna" }.robiOd)
+        assertNull(po.gatunki.first { it.id == "kodeks" }.robi)
+        assertEquals(listOf("joanna", "kodeks"), po.aktywnosc.map { it.kto })   // bez duplikatu Joanny
+        assertEquals("ballada", po.aktywnosc.first().tresc)
+    }
+}

@@ -5,9 +5,10 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * Klient mostu Katedry (Wiesio-Bridge) dla StoL-a. Tylko dwie rozmowy:
- *  · paruj — kod z Katedry → token urządzenia (`POST /api/stado/paruj`),
- *  · stan  — co robi stado (`GET /api/stado/stan`, token w `X-Stado-Token`).
+ * Klient mostu Katedry (Wiesio-Bridge) dla StoL-a. Trzy rozmowy:
+ *  · paruj    — kod z Katedry → token urządzenia (`POST /api/stado/paruj`),
+ *  · stan     — co robi stado, jednorazowo (`GET /api/stado/stan`, token w `X-Stado-Token`),
+ *  · strumien — to samo na żywo (SSE `GET /api/stado/strumien`): stan + każde zdarzenie szyny.
  *
  * Każde żądanie niesie klucz Straży Mostu (`x-teo-klucz`) — telefon łączy się przez
  * Kwantowy Tunel, a most bez klucza odrzuca wszystko spoza maszyny Suwerena.
@@ -33,6 +34,59 @@ class MostKlient(
 
     fun stan(token: String): Wynik<StanStada> =
         zapytaj("GET", "/api/stado/stan", null, mapOf("X-Stado-Token" to token)) { StanStada.zJson(it) }
+
+    /**
+     * Strumień stada (SSE, `GET /api/stado/strumien`). Blokuje wątek, dopóki połączenie żyje:
+     * woła `naStan` z pełnym stanem (na start i po każdej migawce z Katedry) i `naZdarzenie`
+     * z każdym zdarzeniem szyny. Kończy się wynikiem, gdy połączenie padnie albo
+     * `czyDalej()` zwróci false — wtedy wołający decyduje, czy wznowić.
+     */
+    fun strumien(
+        token: String,
+        naStan: (StanStada) -> Unit,
+        naZdarzenie: (ZdarzenieSzyny) -> Unit,
+        czyDalej: () -> Boolean = { true },
+        limitCiszyMs: Int = 70_000,   // most pulsuje co 25 s — dłuższa cisza znaczy zerwane połączenie
+        /** Dostaje połączenie, żeby wołający mógł je zamknąć od razu (disconnect przerywa readLine). */
+        naPolaczenie: (HttpURLConnection) -> Unit = {},
+    ): Wynik<Unit> {
+        val c = (URL("$adres/api/stado/strumien").openConnection() as HttpURLConnection)
+        naPolaczenie(c)
+        return try {
+            c.connectTimeout = limitMs
+            c.readTimeout = limitCiszyMs
+            c.setRequestProperty("Accept", "text/event-stream")
+            c.setRequestProperty("x-teo-klucz", klucz)
+            c.setRequestProperty("X-Stado-Token", token)
+            val kod = c.responseCode
+            if (kod !in 200..299) {
+                val tekst = c.errorStream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+                @Suppress("UNCHECKED_CAST")
+                return opiszBlad(kod, runCatching { Json.parsuj(tekst) as? Map<String, Any?> }.getOrNull(), tekst)
+            }
+            var rozparowany: Wynik.Blad? = null
+            val parser = SseParser { zdarzenie, dane ->
+                @Suppress("UNCHECKED_CAST")
+                val m = runCatching { Json.parsuj(dane) as? Map<String, Any?> }.getOrNull() ?: return@SseParser
+                when (zdarzenie) {
+                    "stan" -> naStan(StanStada.zJson(m))
+                    "szyna" -> naZdarzenie(ZdarzenieSzyny.zJson(m))
+                    "rozparowany" -> rozparowany = Wynik.Blad(m.napis("message") ?: "Telefon odłączony w Katedrze.", rozparowany = true)
+                }
+            }
+            c.inputStream.bufferedReader(Charsets.UTF_8).use { r ->
+                while (czyDalej() && rozparowany == null) {
+                    val l = r.readLine() ?: break
+                    parser.linia(l)
+                }
+            }
+            rozparowany ?: Wynik.Ok(Unit)
+        } catch (e: IOException) {
+            Wynik.Blad("Strumień zerwany (${e.message ?: e.javaClass.simpleName}).")
+        } finally {
+            c.disconnect()
+        }
+    }
 
     private fun <T> zapytaj(
         metoda: String, sciezka: String, cialo: String?, naglowki: Map<String, String>,

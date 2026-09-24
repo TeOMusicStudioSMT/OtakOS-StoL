@@ -10,7 +10,9 @@ Tylko obserwacja: telefon patrzy, niczego w Katedrze nie zmienia.
   Katedra → Dashboard → karta **„StoL — Katedra w telefonie”** → „Paruj telefon” → QR.
   Skan aparatem otwiera StoL (`otakos-stol://paruj?adres=…&k=…&kod=…`), albo link wkleja się ręcznie.
   Kod: 6 cyfr, 5 minut, jednorazowy → wymieniany na **token urządzenia**.
-- **Stado na żywo** (co 20 s, gdy ekran jest otwarty): wyklute TeOgochi z etapem, XP i kolorem
+- **Stado na żywo** — strumień SSE z mostu (`/api/stado/strumien`), gdy ekran jest otwarty;
+  zdarzenie z Katedry dochodzi w milisekundach, zerwane połączenie wznawia się samo (2 s → 30 s).
+  Wyklute TeOgochi z etapem, XP i kolorem
   z Katedry, **co ostatnio zrobiły** (fakty z szyny zdarzeń mostu), jaja, świeżość migawki.
   Gdy agent milczy, ekran mówi „cisza” — nic nie jest zmyślane.
 - Odłączenie telefonu: w apce albo w karcie StoL w Katedrze.
@@ -33,7 +35,7 @@ ma swój sandbox, swój mały świat, i buduje go narzędziami Katedry. Świat s
 który sami tworzą. Na smartfonie — moduł obserwacji.
 
 Droga od tego, co jest, do wizji: migawka stada + szyna zdarzeń (jest) → strumień zdarzeń
-zamiast odpytywania → „klocki” jako artefakty agentów (pliki, sceny, utwory z mostu) →
+zamiast odpytywania (jest) → „klocki” jako artefakty agentów (pliki, sceny, utwory z mostu) →
 scena, na której się układają.
 
 ## Budowanie

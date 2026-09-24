@@ -67,7 +67,15 @@ fun KatedraView(viewModel: KatedraViewModel, modifier: Modifier = Modifier) {
     ) {
         item {
             Column(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Katedra na żywo", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Katedra na żywo", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        if (ui.naZywo) "● na żywo" else "○ łączę…",
+                        fontSize = 12.sp,
+                        color = if (ui.naZywo) Color(0xFF16A34A) else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 Text(
                     buildString {
                         append(ui.adres?.removePrefix("https://") ?: "")
