@@ -101,3 +101,48 @@ class SseTest {
         assertEquals("ballada", po.aktywnosc.first().tresc)
     }
 }
+
+class ProjektStadaTest {
+    @Test fun jsonNapisUciekaZnakiSterujace() {
+        val s = "Świat \"klocków\"\nz \\ ukośnikiem\t\u0001"
+        assertEquals(s, Json.parsuj(jsonNapis(s)))
+    }
+
+    @Test fun nowyProjektSprawdzaToSamoCoMost() {
+        assertEquals("Nadaj projektowi nazwę.", NowyProjekt(" ", "długa wizja projektu", listOf("a", "b")).brak())
+        assertEquals("Opisz wizję choć jednym zdaniem.", NowyProjekt("X", "krótko", listOf("a", "b")).brak())
+        assertEquals("Wspólny projekt potrzebuje co najmniej dwóch TeOgochi.", NowyProjekt("X", "długa wizja projektu", listOf("a", "a")).brak())
+        assertNull(NowyProjekt("X", "długa wizja projektu", listOf("a", "b")).brak())
+    }
+
+    @Test fun nowyProjektToPoprawnyJson() {
+        @Suppress("UNCHECKED_CAST")
+        val m = Json.parsuj(NowyProjekt(" Iskra ", "Linia 1\nLinia \"2\"", listOf("joanna", "kupiec", "joanna"), samoZlecanie = false).doJson()) as Map<String, Any?>
+        assertEquals("Iskra", m["nazwa"])
+        assertEquals("Linia 1\nLinia \"2\"", m["wizja"])
+        assertEquals(listOf("joanna", "kupiec"), m["uczestnicy"])
+        assertEquals(false, m["samoZlecanie"])
+    }
+
+    /** Kształt jak services/ProjektStada.js → skrot (z polami zalozyl i zlecenia). */
+    @Test fun czytaSkrotProjektu() {
+        @Suppress("UNCHECKED_CAST")
+        val m = Json.parsuj("""{"id":"iskra-ab12","nazwa":"Iskra","wizja":"W","stan":"gotowe","od":"2026-09-24T23:59:13.507Z","do":null,"zalozyl":"Pixel",
+          "kroki":[{"agent":"joanna","imie":"Joanna","zadanie":"Muzyka: …","model":"qwen3.5:9b","stan":"gotowe","fala":2},
+                   {"agent":"rezyser","imie":"Reżyser","zadanie":"Biblia","model":"gemma4:e2b","stan":"blad","fala":4}],
+          "gotowe":1,"razem":2,
+          "zlecenia":[{"id":"merch-1","modul":"merch","agent":"kupiec","imie":"Kupiec","opis":"Kubek","stan":"gotowe"},
+                      {"id":"muzyka-3","modul":"muzyka","agent":"joanna","imie":"Joanna","opis":"synthwave","stan":"blad"}]}""") as Map<String, Any?>
+        val p = ProjektStada.zJson(m)
+        assertEquals("Pixel", p.zalozyl)
+        assertEquals(listOf("gotowe", "blad"), p.kroki.map { it.stan })
+        assertEquals(4, p.kroki[1].fala)
+        assertEquals(1, p.zleceniaGotowe)
+        assertEquals(2, p.zlecenia.size)
+    }
+
+    @Test fun brakiFormularzaNieIdaDoMostu() {
+        val w = MostKlient("http://127.0.0.1:1", "k".repeat(48)).zalozProjekt("t", NowyProjekt("", "", emptyList()))
+        assertEquals(MostKlient.Wynik.Blad("Nadaj projektowi nazwę."), w)
+    }
+}

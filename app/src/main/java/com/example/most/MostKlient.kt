@@ -5,10 +5,12 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * Klient mostu Katedry (Wiesio-Bridge) dla StoL-a. Trzy rozmowy:
+ * Klient mostu Katedry (Wiesio-Bridge) dla StoL-a:
  *  · paruj    — kod z Katedry → token urządzenia (`POST /api/stado/paruj`),
  *  · stan     — co robi stado, jednorazowo (`GET /api/stado/stan`, token w `X-Stado-Token`),
- *  · strumien — to samo na żywo (SSE `GET /api/stado/strumien`): stan + każde zdarzenie szyny.
+ *  · strumien — to samo na żywo (SSE `GET /api/stado/strumien`): stan + każde zdarzenie szyny,
+ *  · projekty / zalozProjekt — wspólne projekty stada (`GET /api/stado/projekty`,
+ *    `POST /api/stado/projekt/nowy` — jedyna zmiana, którą most przyjmuje od telefonu).
  *
  * Każde żądanie niesie klucz Straży Mostu (`x-teo-klucz`) — telefon łączy się przez
  * Kwantowy Tunel, a most bez klucza odrzuca wszystko spoza maszyny Suwerena.
@@ -26,7 +28,7 @@ class MostKlient(
     }
 
     fun paruj(kod: String, nazwaUrzadzenia: String): Wynik<String> {
-        val cialo = """{"kod":"${esc(kod)}","urzadzenie":"${esc(nazwaUrzadzenia)}"}"""
+        val cialo = """{"kod":${jsonNapis(kod)},"urzadzenie":${jsonNapis(nazwaUrzadzenia)}}"""
         return zapytaj("POST", "/api/stado/paruj", cialo, emptyMap()) { m ->
             m.napis("token") ?: throw IOException("Most nie oddał tokenu.")
         }
@@ -34,6 +36,20 @@ class MostKlient(
 
     fun stan(token: String): Wynik<StanStada> =
         zapytaj("GET", "/api/stado/stan", null, mapOf("X-Stado-Token" to token)) { StanStada.zJson(it) }
+
+    @Suppress("UNCHECKED_CAST")
+    fun projekty(token: String): Wynik<List<ProjektStada>> =
+        zapytaj("GET", "/api/stado/projekty", null, mapOf("X-Stado-Token" to token)) { m ->
+            m.lista("projekty").mapNotNull { (it as? Map<String, Any?>)?.let(ProjektStada::zJson) }
+        }
+
+    /** Załóż projekt. Braki formularza wracają jako Blad bez pytania mostu. */
+    fun zalozProjekt(token: String, projekt: NowyProjekt): Wynik<ProjektStada> {
+        projekt.brak()?.let { return Wynik.Blad(it) }
+        return zapytaj("POST", "/api/stado/projekt/nowy", projekt.doJson(), mapOf("X-Stado-Token" to token)) { m ->
+            m.obiekt("projekt")?.let(ProjektStada::zJson) ?: throw IOException("Most nie oddał projektu.")
+        }
+    }
 
     /**
      * Strumień stada (SSE, `GET /api/stado/strumien`). Blokuje wątek, dopóki połączenie żyje:
@@ -129,11 +145,11 @@ class MostKlient(
             json?.napis("blad") == "BRAK_KLUCZA" ->
                 Wynik.Blad("Most nie przyjął klucza Straży. Klucz mógł zostać przekuty — sparuj telefon od nowa.", rozparowany = true)
             kod == 401 -> Wynik.Blad(msg ?: "Telefon nie jest sparowany z tą Katedrą.", rozparowany = true)
+            json?.napis("blad") == "TYLKO_LOKALNIE" ->
+                Wynik.Blad("Ten most nie przyjmuje jeszcze projektów z telefonu — zaktualizuj Katedrę.")
             kod == 403 -> Wynik.Blad(msg ?: "Most odmówił (403).")
             kod == 404 && tekst.contains("Cannot") -> Wynik.Blad("Ten most nie zna trasy StoL-a — zaktualizuj Katedrę.")
             else -> Wynik.Blad(msg ?: "Most odpowiedział HTTP $kod.")
         }
     }
-
-    private fun esc(s: String) = s.replace("\\", "\\\\").replace("\"", "\\\"")
 }

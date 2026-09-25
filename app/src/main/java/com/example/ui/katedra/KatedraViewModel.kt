@@ -6,6 +6,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.most.LinkParowania
 import com.example.most.MostKlient
+import com.example.most.NowyProjekt
+import com.example.most.ProjektStada
 import com.example.most.StanStada
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -21,7 +23,8 @@ import kotlinx.coroutines.withContext
 
 /**
  * Okno na własną Katedrę: parowanie z mostem i obserwacja stada TeOgochi.
- * Tylko ODCZYT — StoL niczego w Katedrze nie zmienia.
+ * Jedyna zmiana, jaką StoL może zlecić, to nowy wspólny projekt stada — resztę decyzji
+ * (silniki, ponawianie zleceń, odłączanie urządzeń) most zostawia przy Katedrze.
  */
 data class KatedraUiState(
     val sparowany: Boolean = false,
@@ -33,6 +36,11 @@ data class KatedraUiState(
     val odczytano: Long? = null,
     /** Strumień z mostu jest otwarty — zdarzenia przychodzą na żywo. */
     val naZywo: Boolean = false,
+    /** Wspólne projekty stada, najnowsze pierwsze (z mostu). */
+    val projekty: List<ProjektStada> = emptyList(),
+    /** Formularz projektu czeka na odpowiedź mostu. */
+    val zakladanie: Boolean = false,
+    val bladProjektu: String? = null,
 )
 
 class KatedraViewModel(application: Application) : AndroidViewModel(application) {
@@ -41,6 +49,7 @@ class KatedraViewModel(application: Application) : AndroidViewModel(application)
     val ui: StateFlow<KatedraUiState> = _ui.asStateFlow()
     private var obserwacja: Job? = null
     @Volatile private var polaczenie: HttpURLConnection? = null
+    private var odswiezanieProjektow: Job? = null
 
     init {
         store.wczytaj()?.let { _ui.value = KatedraUiState(sparowany = true, adres = it.adres) }
@@ -101,11 +110,13 @@ class KatedraViewModel(application: Application) : AndroidViewModel(application)
                 val wynik = MostKlient(p.adres, p.klucz).strumien(
                     token = p.token,
                     naStan = { s ->
+                        if (!_ui.value.naZywo) wczytajProjekty()   // po (ponownym) połączeniu — mogło się coś zmienić
                         przerwa = 2_000L
                         _ui.update { it.copy(stan = s, blad = null, pracuje = false, naZywo = true, odczytano = System.currentTimeMillis()) }
                     },
                     naZdarzenie = { z ->
                         _ui.update { u -> u.copy(stan = u.stan?.zZdarzeniem(z), odczytano = System.currentTimeMillis()) }
+                        if (z.rodzaj == "projekt") wczytajProjekty(poMs = 800)   // kilka kroków naraz → jedno pytanie
                     },
                     czyDalej = { isActive },
                     naPolaczenie = { polaczenie = it },
@@ -129,6 +140,49 @@ class KatedraViewModel(application: Application) : AndroidViewModel(application)
         obserwacja?.cancel(); obserwacja = null
         polaczenie?.disconnect(); polaczenie = null   // przerywa blokujące readLine od razu
         _ui.update { it.copy(naZywo = false) }
+    }
+
+    /** Lista projektów z mostu. `poMs` zbiera serię zdarzeń „projekt" w jedno pytanie. */
+    fun wczytajProjekty(poMs: Long = 0) {
+        odswiezanieProjektow?.cancel()
+        odswiezanieProjektow = viewModelScope.launch(Dispatchers.IO) {
+            if (poMs > 0) delay(poMs)
+            val p = store.wczytaj() ?: return@launch
+            when (val w = MostKlient(p.adres, p.klucz).projekty(p.token)) {
+                is MostKlient.Wynik.Ok -> _ui.update { it.copy(projekty = w.wartosc) }
+                is MostKlient.Wynik.Blad -> if (w.rozparowany) rozparowanyPrzez(w.opis)   // inne błędy: zostaje stara lista, strumień i tak mówi o łączności
+            }
+        }
+    }
+
+    /**
+     * Załóż wspólny projekt stada. Po sukcesie lista się odświeża, a `poSukcesie` zamyka formularz;
+     * przy błędzie formularz zostaje z wpisanym tekstem i zdaniem od mostu.
+     */
+    fun zalozProjekt(projekt: NowyProjekt, poSukcesie: () -> Unit) {
+        val p = store.wczytaj() ?: return
+        _ui.update { it.copy(zakladanie = true, bladProjektu = null) }
+        viewModelScope.launch {
+            val w = withContext(Dispatchers.IO) { MostKlient(p.adres, p.klucz).zalozProjekt(p.token, projekt) }
+            when (w) {
+                is MostKlient.Wynik.Ok -> {
+                    _ui.update { u -> u.copy(zakladanie = false, projekty = listOf(w.wartosc) + u.projekty.filter { it.id != w.wartosc.id }) }
+                    poSukcesie()
+                    wczytajProjekty(poMs = 1_500)
+                }
+                is MostKlient.Wynik.Blad ->
+                    if (w.rozparowany) rozparowanyPrzez(w.opis)
+                    else _ui.update { it.copy(zakladanie = false, bladProjektu = w.opis) }
+            }
+        }
+    }
+
+    fun wyczyscBladProjektu() = _ui.update { it.copy(bladProjektu = null) }
+
+    private fun rozparowanyPrzez(opis: String) {
+        zatrzymajObserwacje()
+        store.zapomnij()
+        _ui.value = KatedraUiState(blad = opis)
     }
 
     /** Adres świata klocków dla WebView — albo null, gdy telefon nie jest sparowany. */
