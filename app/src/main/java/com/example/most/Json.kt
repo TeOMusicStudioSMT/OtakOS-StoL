@@ -122,3 +122,21 @@ internal fun Map<String, Any?>.logika(k: String): Boolean? = this[k] as? Boolean
 internal fun Map<String, Any?>.obiekt(k: String): Map<String, Any?>? = this[k] as? Map<String, Any?>
 @Suppress("UNCHECKED_CAST")
 internal fun Map<String, Any?>.lista(k: String): List<Any?> = (this[k] as? List<Any?>) ?: emptyList()
+
+/**
+ * Napis jako literał JSON (z cudzysłowami). Ucieka też znaki sterujące — wizja projektu
+ * bywa wielolinijkowa, a surowy \n w środku napisu to niepoprawny JSON (most oddałby 400).
+ */
+fun jsonNapis(s: String): String = buildString(s.length + 2) {
+    append('"')
+    for (c in s) when {
+        c == '"' -> append("\\\"")
+        c == '\\' -> append("\\\\")
+        c == '\n' -> append("\\n")
+        c == '\r' -> append("\\r")
+        c == '\t' -> append("\\t")
+        c < ' ' -> append("\\u%04x".format(c.code))
+        else -> append(c)
+    }
+    append('"')
+}

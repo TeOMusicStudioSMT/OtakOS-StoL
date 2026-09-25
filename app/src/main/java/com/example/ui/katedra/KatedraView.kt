@@ -49,8 +49,9 @@ import com.example.most.ileTemu
 /**
  * 🏛️ Katedra na żywo — co robią TeOgochi Twojej lokalnej Katedry.
  *
- * Tylko obserwacja. Wszystko na tym ekranie pochodzi z mostu (migawka stada z Domu
- * TeOgochi + fakty z szyny zdarzeń). Gdy agent milczy, ekran mówi „cisza" — nie zmyśla.
+ * Obserwacja plus jedna decyzja: nowy wspólny projekt stada (natywny formularz).
+ * Wszystko na tym ekranie pochodzi z mostu (migawka stada z Domu TeOgochi, fakty
+ * z szyny zdarzeń, projekty). Gdy agent milczy, ekran mówi „cisza" — nie zmyśla.
  */
 @Composable
 fun KatedraView(viewModel: KatedraViewModel, modifier: Modifier = Modifier) {
@@ -67,6 +68,20 @@ fun KatedraView(viewModel: KatedraViewModel, modifier: Modifier = Modifier) {
     }
 
     var swiat by remember { mutableStateOf<String?>(null) }
+    var formularz by remember { mutableStateOf(false) }
+    if (formularz) {
+        val zamknij = { formularz = false; viewModel.wyczyscBladProjektu() }
+        BackHandler(enabled = !ui.zakladanie) { zamknij() }
+        FormularzProjektu(
+            wyklute = ui.stan?.wyklute.orEmpty(),
+            zakladanie = ui.zakladanie,
+            blad = ui.bladProjektu,
+            onZaloz = { viewModel.zalozProjekt(it) { formularz = false } },
+            onAnuluj = zamknij,
+            modifier = modifier,
+        )
+        return
+    }
     swiat?.let { adres ->
         BackHandler { swiat = null }
         Column(modifier.fillMaxSize()) {
@@ -129,6 +144,22 @@ fun KatedraView(viewModel: KatedraViewModel, modifier: Modifier = Modifier) {
                 )
             }
         }
+
+        item {
+            Column(Modifier.padding(top = 10.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("🧩 Wspólne projekty", fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                    OutlinedButton(onClick = { formularz = true }, enabled = wyklute.size >= 2) { Text("＋ Nowy projekt") }
+                }
+                if (wyklute.size < 2) {
+                    Text("Wspólny projekt potrzebuje co najmniej dwóch wyklutych TeOgochi.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+        if (ui.projekty.isEmpty()) {
+            item { Text("Jeszcze żadnego projektu.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        }
+        items(ui.projekty.take(8), key = { "projekt-${it.id}" }) { KartaProjektu(it) }
 
         val aktywnosc = stan?.aktywnosc.orEmpty().take(12)
         if (aktywnosc.isNotEmpty()) {
@@ -226,7 +257,7 @@ private fun Parowanie(blad: String?, pracuje: Boolean, onSparuj: (String) -> Uni
         }
         blad?.let { Text("⚠️ $it", fontSize = 13.sp, color = Color(0xFFDC2626)) }
         Text(
-            "StoL tylko patrzy: niczego w Katedrze nie zmienia. Odłączyć telefon można tu albo w Katedrze.",
+            "StoL patrzy na stado i może zlecić mu nowy wspólny projekt — nic więcej w Katedrze nie zmienia. Odłączyć telefon można tu albo w Katedrze.",
             fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }

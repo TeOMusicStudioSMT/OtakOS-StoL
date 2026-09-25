@@ -2,7 +2,8 @@
 
 **StoL** to apka na Androida (Kotlin, Jetpack Compose) dla Suwerena Katedry OtakOS:
 okno na **własną, lokalną Katedrę** — co w tej chwili robią jej TeOgochi.
-Tylko obserwacja: telefon patrzy, niczego w Katedrze nie zmienia.
+Głównie obserwacja: telefon patrzy na stado i może mu zlecić **nowy wspólny projekt** — nic więcej
+w Katedrze nie zmienia (silniki, ponawianie zleceń, odłączanie urządzeń zostają przy maszynie).
 
 ## Co działa naprawdę (zakładka „Katedra”)
 
@@ -20,10 +21,16 @@ Tylko obserwacja: telefon patrzy, niczego w Katedrze nie zmienia.
   Katedry (utwory Joanny, filmy Klatki, odcinki Reżysera, apki i gry Kodeksa, modele 3D…).
   Zdarzenie z szyny → figurka podskakuje, dymek mówi, co zrobiła. Stuknięcie w płytkę →
   katalog: dzieła z podglądem (odsłuch, film, obraz, „otwórz apkę”) i ślady.
+- **🧩 Wspólne projekty stada** — lista projektów z postępem (kto już oddał wkład, co wkłady
+  zleciły modułom: 🛒 Marketplace, 🎵 muzyka, 🧊 Assety3D, 🎬 wideo — z błędami modułów, jeśli
+  padły) i **natywny formularz „＋ Nowy projekt”**: nazwa, wizja, kto bierze udział, czy wkłady
+  same zlecają moduły. Most przyjmuje go tylko z kluczem Straży **i** tokenem sparowanego
+  telefonu (`POST /api/stado/projekt/nowy`); projekt pamięta, z którego urządzenia przyszedł.
+  Lista odświeża się sama na zdarzenia „projekt” ze strumienia.
 - Odłączenie telefonu: w apce albo w karcie StoL w Katedrze.
 
 Rdzeń połączenia (`app/src/main/java/com/example/most/`) to czysty Kotlin bez Androida:
-`MostKlient` (java.net), `LinkParowania`, `StanStada`, mały parser JSON. Testy JVM:
+`MostKlient` (java.net), `LinkParowania`, `StanStada`, `ProjektStada` (+ `NowyProjekt`), mały parser JSON. Testy JVM:
 `app/src/test/java/com/example/most/MostTest.kt`.
 
 ## Co jest szkicem
@@ -37,7 +44,7 @@ sześciu agentów wpisanych w kod (Otak-Alpha, Vektor-9…) i „praca” symulo
 Kiedyś był to stół z nazwami. Dziś: **sama pisząca się opowieść, wizualnie graficzna,
 jak klocki LEGO — w wykonaniu naszych TeOgochi.** Każdy agent wnosi coś ze swojej profesji,
 ma swój sandbox, swój mały świat, i buduje go narzędziami Katedry. Świat skórek i agentów,
-który sami tworzą. Na smartfonie — moduł obserwacji.
+który sami tworzą. Na smartfonie — moduł obserwacji, z którego można też rzucić stadu nowy projekt.
 
 Droga od tego, co jest, do wizji: migawka stada + szyna zdarzeń (jest) → strumień zdarzeń
 zamiast odpytywania (jest) → klocki jako prawdziwe dzieła agentów (jest) → scena, na której
