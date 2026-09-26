@@ -181,7 +181,8 @@ fun KatedraView(viewModel: KatedraViewModel, modifier: Modifier = Modifier) {
 
 /**
  * Świat klocków z mostu (/swiat/) w WebView — ta sama scena co w Hubie: płytki TeOgochi,
- * klocki z prawdziwych dzieł, katalog po stuknięciu. JavaScript jest potrzebny scenie;
+ * klocki z prawdziwych dzieł, katalog po stuknięciu; rano sam pokazuje Powitanie Dnia (film od stada).
+ * JavaScript jest potrzebny scenie;
  * strona pochodzi wyłącznie z mostu Suwerena (adres z parowania), nie z internetu.
  */
 @SuppressLint("SetJavaScriptEnabled")
@@ -193,7 +194,8 @@ private fun SwiatKlockow(adres: String, modifier: Modifier = Modifier) {
             WebView(ctx).apply {
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
-                settings.mediaPlaybackRequiresUserGesture = true
+                // Strona pochodzi z mostu Suwerena (adres z parowania); Powitanie Dnia gra na starcie z muzyką.
+                settings.mediaPlaybackRequiresUserGesture = false
                 webViewClient = WebViewClient()   // linki (np. „otwórz apkę") zostają w środku, nie w obcej przeglądarce
                 loadUrl(adres)
             }
