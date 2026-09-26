@@ -28,7 +28,10 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      - uses: android-actions/setup-android@v3
+      # Android SDK jest już na obrazie ubuntu-latest (ANDROID_HOME). Akcja setup-android@v3
+      # padała na nieistniejącym pakiecie „tools”; brakujące platformy AGP dociąga sam.
+      - name: Android SDK z obrazu
+        run: echo "ANDROID_HOME=$ANDROID_HOME" && ls "$ANDROID_HOME/platforms" | tail -3
 
       # Repo nie ma gradlew (projekt z AI Studio) — Gradle w wersji z gradle-wrapper.properties.
       - uses: gradle/actions/setup-gradle@v4
