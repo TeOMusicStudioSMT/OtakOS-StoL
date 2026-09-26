@@ -1,0 +1,72 @@
+# 📲 StoL — APK do pobrania na telefon, budowany przez GitHuba.
+# Suweren (2026-09-26): „nie udało mi się zainstalować tego na telefonie… trzeba prostszy sposób".
+# Po każdym push na main powstaje wydanie „StoL — najnowszy" z plikiem StoL.apk
+# (Releases w repo → pobierz na telefonie → zainstaluj). PR-y budują APK jako artefakt.
+name: StoL APK
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: stol-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: android-actions/setup-android@v3
+
+      # Repo nie ma gradlew (projekt z AI Studio) — Gradle w wersji z gradle-wrapper.properties.
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.3.1"
+
+      # Klucz podpisu debug żyje w cache GitHuba, nie w repo: ten sam klucz = kolejne
+      # wersje instalują się NA poprzednią (bez odinstalowania). Cache znika po ~7 dniach
+      # bez budowania — wtedy nowy klucz i jednorazowo trzeba odinstalować starą apkę.
+      - name: Klucz debug z pamięci podręcznej
+        uses: actions/cache@v4
+        with:
+          path: debug.keystore
+          key: stol-debug-keystore-v1
+      - name: Klucz debug (gdy go jeszcze nie ma)
+        run: |
+          [ -f debug.keystore ] || keytool -genkeypair -keystore debug.keystore \
+            -storepass android -alias androiddebugkey -keypass android \
+            -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+
+      - name: Buduj APK
+        run: gradle --no-daemon :app:assembleDebug
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: StoL-apk
+          path: app/build/outputs/apk/debug/*.apk
+
+      - name: Testy rdzenia połączenia z mostem (com.example.most)
+        run: gradle --no-daemon :app:testDebugUnitTest --tests 'com.example.most.*'
+
+      - name: Wydanie „StoL — najnowszy”
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk StoL.apk
+          gh release delete najnowszy --yes --cleanup-tag || true
+          gh release create najnowszy StoL.apk --prerelease \
+            --title "StoL — najnowszy" \
+            --notes "Zbudowane z ${GITHUB_SHA::7}. Na telefonie: pobierz StoL.apk → otwórz → pozwól na instalację z tego źródła. Potem w Katedrze: Dashboard → karta StoL → Paruj telefon → zeskanuj QR aparatem."
