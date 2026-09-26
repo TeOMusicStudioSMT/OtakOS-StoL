@@ -35,6 +35,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -67,7 +68,8 @@ fun KatedraView(viewModel: KatedraViewModel, modifier: Modifier = Modifier) {
         return
     }
 
-    var swiat by remember { mutableStateOf<String?>(null) }
+    // Sparowany telefon wita klockami (jak Świat w Hubie); „← Lista stada" prowadzi do kart i projektów.
+    var swiat by rememberSaveable { mutableStateOf(viewModel.adresSwiata()) }
     var formularz by remember { mutableStateOf(false) }
     if (formularz) {
         val zamknij = { formularz = false; viewModel.wyczyscBladProjektu() }

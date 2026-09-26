@@ -24,7 +24,9 @@ enum class TableLayoutMode {
 }
 
 data class StolUiState(
-    val selectedTab: Int = 0, // 0 = Stół (Table), 1 = Izba Akceptacji (Ratification), 2 = Historia Działań (Logs), 3 = Agenci (Agents), 4 = Katedra (most, prawdziwe stado)
+    // 0 = Stół (Table), 1 = Izba Akceptacji (Ratification), 2 = Historia Działań (Logs), 3 = Agenci (Agents), 4 = Katedra (most, prawdziwe stado).
+    // Start na Katedrze: zakładki 0–3 to szkielet z lokalnymi przykładami, prawdziwe stado żyje w 4 (Suweren, 2026-09-26).
+    val selectedTab: Int = 4,
     val selectedCategory: String? = null,
     val selectedStatus: String? = null,
     val searchQuery: String = "",
