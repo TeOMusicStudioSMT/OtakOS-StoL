@@ -14,6 +14,12 @@ import java.net.URLEncoder
  *  · kod   — jednorazowy kod parowania (6 cyfr, żyje 5 minut).
  *
  * Kod wymienia się na TOKEN urządzenia; od tej chwili apka niesie klucz + token.
+ *
+ * QR na karcie w Katedrze prowadzi na stronę parowania mostu (aparaty otwierają z QR tylko https):
+ *
+ *   https://x.trycloudflare.com/stol/paruj.html#k=<klucz Straży>&kod=123456&do=<koniec ważności>
+ *
+ * Skaner w StoL czyta oba formaty; adres mostu = adres tej strony.
  */
 /**
  * Adres świata klocków (strona mostu `/swiat/`, pokazywana w WebView).
@@ -50,15 +56,17 @@ data class LinkParowania(val adres: String, val klucz: String, val kod: String) 
          */
         fun zTekstu(tekst: String): LinkParowania? {
             val t = tekst.trim()
-            val zapytanie = when {
-                t.startsWith("otakos-stol://paruj?") -> t.substringAfter('?')
+            val strona = Regex("^(https?://[^/?#]+)/stol/paruj\\.html[^#]*#(.*)$").find(t)
+            val (zapytanie, adresStrony) = when {
+                t.startsWith("otakos-stol://paruj?") -> t.substringAfter('?') to null
+                strona != null -> strona.groupValues[2] to strona.groupValues[1]
                 else -> return null
             }
             val pola = zapytanie.split('&').mapNotNull {
                 val i = it.indexOf('=')
                 if (i <= 0) null else it.substring(0, i) to dec(it.substring(i + 1))
             }.toMap()
-            val adres = normalizujAdres(pola["adres"] ?: return null) ?: return null
+            val adres = normalizujAdres(adresStrony ?: pola["adres"] ?: return null) ?: return null
             val klucz = pola["k"]?.trim().orEmpty()
             val kod = pola["kod"]?.trim().orEmpty()
             if (klucz.length < 32 || !Regex("^\\d{6}$").matches(kod)) return null

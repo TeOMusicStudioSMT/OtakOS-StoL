@@ -32,6 +32,16 @@ class LinkParowaniaTest {
         assertEquals(LinkParowania("https://ciche-lodzie-gra.trycloudflare.com", "065c105e6eab46998c0e651dbc85df66a82f1b2c3d4e5f60", "012345"), l)
     }
 
+    /** QR z karty w Katedrze (StolCard.tsx → linkStronyParowaniaStol): strona parowania mostu, dane we fragmencie. */
+    @Test fun czytaLinkStronyParowania() {
+        val l = LinkParowania.zTekstu("https://ciche-lodzie-gra.trycloudflare.com/stol/paruj.html#k=065c105e6eab46998c0e651dbc85df66a82f1b2c3d4e5f60&kod=012345&do=1790509791260")
+        assertEquals(LinkParowania("https://ciche-lodzie-gra.trycloudflare.com", "065c105e6eab46998c0e651dbc85df66a82f1b2c3d4e5f60", "012345"), l)
+        // Katedra w sieci domowej (bez tunelu): http i port zostają.
+        assertEquals("http://192.168.1.5:3001", LinkParowania.zTekstu("http://192.168.1.5:3001/stol/paruj.html#k=$klucz&kod=123456")?.adres)
+        assertNull(LinkParowania.zTekstu("https://x.trycloudflare.com/stol/paruj.html#k=$klucz"))          // bez kodu
+        assertNull(LinkParowania.zTekstu("https://x.trycloudflare.com/swiat/#k=$klucz&kod=123456"))        // nie strona parowania
+    }
+
     @Test fun adresSwiataNiesieKluczITokenWeFragmencie() {
         assertEquals(
             "https://x.trycloudflare.com/swiat/#k=abc%2B%2F&t=E_GO-ut2",

@@ -28,6 +28,9 @@ import android.annotation.SuppressLint
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -246,24 +249,44 @@ private fun KartaTeogochi(g: Gatunek) {
 @Composable
 private fun Parowanie(blad: String?, pracuje: Boolean, onSparuj: (String) -> Unit, modifier: Modifier = Modifier) {
     var link by remember { mutableStateOf("") }
+    // Suweren (2026-09-27): „dajmy StoL-owi możliwość aparatu". Aparat telefonu otwiera QR w sobie
+    // (albo w przeglądarce), nie w StoL-u — więc StoL skanuje sam. ZXing działa offline, bez usług
+    // Google; o zgodę na aparat pyta jego ekran skanowania. Odczytany link idzie prosto do parowania.
+    val skaner = rememberLauncherForActivityResult(ScanContract()) { wynik ->
+        wynik.contents?.let { odczyt -> link = odczyt; onSparuj(odczyt) }
+    }
     Column(
         modifier = modifier.fillMaxSize().padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
     ) {
         Text("Połącz StoL z Katedrą", fontSize = 22.sp, fontWeight = FontWeight.Bold)
         Text(
-            "W Katedrze na komputerze otwórz Dashboard → karta „StoL” i wygeneruj link parowania. " +
-                "Zeskanuj kod QR aparatem — otworzy się strona Katedry z przyciskiem „Otwórz w StoL” — albo skopiuj link i wklej go tutaj. Kod działa 5 minut i tylko raz.",
+            "W Katedrze na komputerze otwórz Dashboard → karta „StoL” → „Paruj telefon” i zeskanuj QR przyciskiem niżej. " +
+                "Możesz też skopiować link i wkleić go tutaj. Kod działa 5 minut i tylko raz.",
             fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        Button(
+            onClick = {
+                skaner.launch(
+                    ScanOptions()
+                        .setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                        .setPrompt("Nakieruj na QR z karty StoL w Katedrze")
+                        .setBeepEnabled(false)
+                        .setOrientationLocked(false),
+                )
+            },
+            enabled = !pracuje,
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text("📷 Skanuj QR z Katedry", fontSize = 16.sp) }
+        Text("albo wklej link:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         OutlinedTextField(
             value = link,
             onValueChange = { link = it },
-            label = { Text("otakos-stol://paruj?…") },
+            label = { Text("link parowania z Katedry") },
             singleLine = false,
             modifier = Modifier.fillMaxWidth(),
         )
-        Button(onClick = { onSparuj(link) }, enabled = !pracuje && link.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(onClick = { onSparuj(link) }, enabled = !pracuje && link.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
             Text(if (pracuje) "Paruję…" else "Sparuj")
         }
         blad?.let { Text("⚠️ $it", fontSize = 13.sp, color = Color(0xFFDC2626)) }
