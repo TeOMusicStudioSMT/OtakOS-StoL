@@ -2,8 +2,8 @@
 
 **StoL** to apka na Androida (Kotlin, Jetpack Compose) dla Suwerena Katedry OtakOS:
 okno na **własną, lokalną Katedrę** — co w tej chwili robią jej TeOgochi.
-Głównie obserwacja: telefon patrzy na stado i może mu zlecić **nowy wspólny projekt** — nic więcej
-w Katedrze nie zmienia (silniki, ponawianie zleceń, odłączanie urządzeń zostają przy maszynie).
+Telefon patrzy na stado, zleca mu **nowy wspólny projekt** i decyduje na **Stole ratyfikacji**.
+Silniki, ponawianie zleceń i odłączanie urządzeń zostają przy maszynie.
 
 ## Co działa naprawdę (zakładka „Katedra”)
 
@@ -30,14 +30,26 @@ w Katedrze nie zmienia (silniki, ponawianie zleceń, odłączanie urządzeń zos
 - Odłączenie telefonu: w apce albo w karcie StoL w Katedrze.
 
 Rdzeń połączenia (`app/src/main/java/com/example/most/`) to czysty Kotlin bez Androida:
-`MostKlient` (java.net), `LinkParowania`, `StanStada`, `ProjektStada` (+ `NowyProjekt`), mały parser JSON. Testy JVM:
+`MostKlient` (java.net), `LinkParowania`, `StanStada`, `ProjektStada` (+ `NowyProjekt`), `KartaStolu` (+ `NowaKarta`), mały parser JSON.
+Ekrany Stołu (`ui/stol/StolEkrany.kt`) to sam Compose bez importów z Androida. Testy JVM:
 `app/src/test/java/com/example/most/MostTest.kt`.
 
-## Co jest szkicem
+## Stół ratyfikacji (zakładki Stół / Izba / Historia / Agenci)
 
-Zakładki **Stół / Akceptacje / Historia / Agenci** to pierwotny projekt z AI Studio:
-sześciu agentów wpisanych w kod (Otak-Alpha, Vektor-9…) i „praca” symulowana
-(`StolViewModel.simulateAgentIteration`). Zostały jako szkic wizji — nie łączą się z Katedrą.
+Karty propozycji z mostu (`/api/stol`, services/Stol.js w Katedrze), wygląd z AI Studio (marmurowy stół):
+
+- **Stół**: karty pogrupowane po drodze **na stole → opracowuje stado → do akceptacji → zratyfikowane**
+  (plus „utknęła” i „odłożone”). Karty kładzie się z Katedry (Podcast Twin → „Na Stół” / „📄 Plik”)
+  albo z telefonu („Połóż na stół”).
+- **Karta**: „Przyjmij → Projekt Stada” (uczestnicy: proponowani w karcie, do odznaczenia),
+  po Biblii projektu „Ratyfikuj → moduły Katedry” (dopiero wtedy Marketplace, muzyka, 3D, wideo
+  dostają zlecenia), „Odłóż ze stołu”, zapis decyzji.
+- **Izba Akceptacji**: tylko to, co czeka na Suwerena; liczba na plakietce.
+- **Historia**: szyna zdarzeń Katedry (`/api/szyna/zdarzenia`), domyślnie Stół i projekty.
+- **Agenci**: stado TeOgochi z mostu (forma, dziedzina, XP, co ostatnio zrobił).
+
+Odświeżanie co 10 s, tylko gdy zakładka stołu jest na ekranie. Dawne atrapy z AI Studio
+(agenci wpisani w kod, symulowana praca, baza Room) są usunięte.
 
 ## Wizja (Suweren, 2026-09-24)
 

@@ -156,3 +156,42 @@ class ProjektStadaTest {
         assertEquals(MostKlient.Wynik.Blad("Nadaj projektowi nazwę."), w)
     }
 }
+
+class StolTest {
+    /** Karta tak, jak oddaje ją most (services/Stol.js → lista: etap + projektSkrot). */
+    private val json = """{"id":"k-mf3x-a1b2","tytul":"Forge Fashion","tresc":"Suweren: \"moda\"\n🔥 ISKRA: tak","wizja":"Mobilna gra RPG-fashion",
+        "sugerowani":["Krawcowa","Paleta"],"zrodlo":"podcast-twin","zalozyl":null,"stan":"przyjeta","projekt":"p1","od":"2026-09-27T10:00:00.000Z",
+        "decyzje":[{"co":"przyjeta","kto":"Pixel 8","kiedy":"2026-09-27T10:05:00.000Z"}],"etap":"do_akceptacji",
+        "projektSkrot":{"id":"p1","stan":"gotowe","gotowe":6,"razem":6,"biblia":"BIBLIA Forge Fashion","zlecenia":[{"modul":"merch","opis":"Koszulka","stan":"czeka"}]}}"""
+
+    @Suppress("UNCHECKED_CAST")
+    @Test fun czytaKarteZMostu() {
+        val k = KartaStolu.zJson(Json.parsuj(json) as Map<String, Any?>)
+        assertEquals("Forge Fashion", k.tytul)
+        assertEquals(listOf("Krawcowa", "Paleta"), k.sugerowani)
+        assertNull(k.zalozyl)
+        assertEquals(listOf(Decyzja("przyjeta", "Pixel 8", "2026-09-27T10:05:00.000Z")), k.decyzje)
+        assertEquals("BIBLIA Forge Fashion", k.projekt?.biblia)
+        assertEquals(listOf(ZlecenieKarty("merch", "Koszulka", "czeka")), k.projekt?.zlecenia)
+        assertTrue(k.moznaRatyfikowac && k.czekaNaSuwerena && !k.moznaPrzyjac)
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    @Test fun etapyDecydujaCoWolno() {
+        fun k(etap: String) = KartaStolu.zJson(mapOf("id" to "x", "tytul" to "T", "etap" to etap))
+        assertTrue(k("na_stole").moznaPrzyjac && k("na_stole").moznaOdrzucic && !k("na_stole").moznaRatyfikowac)
+        assertTrue(k("utknela").moznaPrzyjac)
+        assertTrue(!k("opracowuje").czekaNaSuwerena && !k("opracowuje").moznaOdrzucic)   // jak w moście: w trakcie nie odrzucisz
+        assertTrue(!k("zratyfikowane").moznaOdrzucic && !k("zratyfikowane").czekaNaSuwerena)
+        assertNull(k("na_stole").projekt)
+    }
+
+    @Test fun nowaKartaMowiCzegoBrakuje() {
+        assertEquals("Nadaj propozycji tytuł.", NowaKarta(" ", "długa treść propozycji").brak())
+        assertEquals("Opisz propozycję choć jednym zdaniem.", NowaKarta("Gra", "krótko").brak())
+        assertNull(NowaKarta("Gra", "Zróbmy grę o klockach").brak())
+        assertEquals("""{"tytul":"Gra \"K\"","tresc":"a\nb c d e f g"}""", NowaKarta(" Gra \"K\" ", "a\nb c d e f g ").doJson())
+        val w = MostKlient("http://127.0.0.1:1", "k".repeat(48)).polozNaStol("t", NowaKarta("", ""))
+        assertEquals(MostKlient.Wynik.Blad("Nadaj propozycji tytuł."), w)   // bez rundy przez tunel
+    }
+}

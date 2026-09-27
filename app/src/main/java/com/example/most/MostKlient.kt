@@ -51,6 +51,50 @@ class MostKlient(
         }
     }
 
+    /** Karty Stołu ratyfikacji, najnowsze pierwsze (`GET /api/stol`). */
+    @Suppress("UNCHECKED_CAST")
+    fun stol(token: String): Wynik<List<KartaStolu>> =
+        zapytaj("GET", "/api/stol", null, mapOf("X-Stado-Token" to token)) { m ->
+            m.lista("karty").mapNotNull { (it as? Map<String, Any?>)?.let(KartaStolu::zJson) }
+        }
+
+    /** Jedna karta z pełną treścią i Biblią projektu (`GET /api/stol/:id`). */
+    fun karta(token: String, id: String): Wynik<KartaStolu> =
+        zapytaj("GET", "/api/stol/${sciezkaId(id)}", null, mapOf("X-Stado-Token" to token)) { m ->
+            m.obiekt("karta")?.let(KartaStolu::zJson) ?: throw IOException("Most nie oddał karty.")
+        }
+
+    /** Połóż propozycję na stół z telefonu (`POST /api/stol`; most zapisze źródło „telefon"). */
+    fun polozNaStol(token: String, karta: NowaKarta): Wynik<KartaStolu> {
+        karta.brak()?.let { return Wynik.Blad(it) }
+        return zapytaj("POST", "/api/stol", karta.doJson(), mapOf("X-Stado-Token" to token)) { m ->
+            m.obiekt("karta")?.let(KartaStolu::zJson) ?: throw IOException("Most nie oddał karty.")
+        }
+    }
+
+    /**
+     * Decyzja Suwerena nad kartą: przyjmij (→ Projekt Stada; `uczestnicy` = id TeOgochi, pusta lista =
+     * sugerowani z karty albo całe stado), odrzuć, ratyfikuj (→ zlecenia modułów). Odmowę mostu
+     * (np. „stado pracuje już nad innym projektem") oddaje jego słowami; świeży etap daje kolejne `stol()`.
+     * Ok niesie liczbę zleceń modułów (tylko ratyfikacja ją ma; reszta = 0).
+     */
+    fun decyzja(token: String, id: String, akcja: AkcjaStolu, uczestnicy: List<String> = emptyList()): Wynik<Int> {
+        val cialo = "{\"uczestnicy\":[${uczestnicy.distinct().joinToString(",") { jsonNapis(it) }}]}"
+        return zapytaj("POST", "/api/stol/${sciezkaId(id)}/${akcja.sciezka}", cialo, mapOf("X-Stado-Token" to token)) { m ->
+            m.liczba("zlecenia")?.toInt() ?: 0
+        }
+    }
+
+    /** Ogon szyny Katedry (`GET /api/szyna/zdarzenia`) — Historia: kto co zrobił, najnowsze pierwsze. */
+    @Suppress("UNCHECKED_CAST")
+    fun zdarzenia(token: String, ile: Int = 80): Wynik<List<ZdarzenieSzyny>> =
+        zapytaj("GET", "/api/szyna/zdarzenia?ile=$ile", null, mapOf("X-Stado-Token" to token)) { m ->
+            m.lista("zdarzenia").mapNotNull { (it as? Map<String, Any?>)?.let(ZdarzenieSzyny::zJson) }
+                .sortedByDescending { it.kiedy.orEmpty() }
+        }
+
+    private fun sciezkaId(id: String) = java.net.URLEncoder.encode(id, "UTF-8").replace("+", "%20")
+
     /**
      * Strumień stada (SSE, `GET /api/stado/strumien`). Blokuje wątek, dopóki połączenie żyje:
      * woła `naStan` z pełnym stanem (na start i po każdej migawce z Katedry) i `naZdarzenie`
