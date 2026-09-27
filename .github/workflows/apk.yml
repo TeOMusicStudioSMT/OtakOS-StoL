@@ -38,19 +38,30 @@ jobs:
         with:
           gradle-version: "9.3.1"
 
-      # Klucz podpisu debug żyje w cache GitHuba, nie w repo: ten sam klucz = kolejne
-      # wersje instalują się NA poprzednią (bez odinstalowania). Cache znika po ~7 dniach
-      # bez budowania — wtedy nowy klucz i jednorazowo trzeba odinstalować starą apkę.
-      - name: Klucz debug z pamięci podręcznej
-        uses: actions/cache@v4
-        with:
-          path: debug.keystore
-          key: stol-debug-keystore-v1
-      - name: Klucz debug (gdy go jeszcze nie ma)
+      # Klucz podpisu: WYŁĄCZNIE z sekretu repo STOL_KEYSTORE_B64 (keystore w base64).
+      # Ten sam klucz = każda nowa wersja instaluje się NA poprzednią, bez odinstalowania.
+      # Dawniej klucz leżał w cache Actions — w publicznym repo cache potrafią odczytać buildy
+      # PR-ów z forków, a sam wygasał po ~7 dniach. Sekrety do forków nie trafiają.
+      #   · wydanie (push na main / ręcznie) bez sekretu → STOP z komunikatem (APK z obcym
+      #     kluczem nie zainstalowałby się na StoL-a Suwerena),
+      #   · PR bez sekretu (np. z forka) → jednorazowy klucz, APK tylko do sprawdzenia.
+      - name: Klucz podpisu z sekretu
+        env:
+          KLUCZ_B64: ${{ secrets.STOL_KEYSTORE_B64 }}
         run: |
-          [ -f debug.keystore ] || keytool -genkeypair -keystore debug.keystore \
-            -storepass android -alias androiddebugkey -keypass android \
-            -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          if [ -n "$KLUCZ_B64" ]; then
+            printf '%s' "$KLUCZ_B64" | base64 -d > debug.keystore
+            echo "Klucz ze stałego sekretu STOL_KEYSTORE_B64."
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            keytool -genkeypair -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android \
+              -keyalg RSA -keysize 2048 -validity 30 -dname "CN=StoL PR,O=jednorazowy,C=PL"
+            echo "::notice::PR bez sekretu — APK podpisany jednorazowym kluczem, tylko do sprawdzenia (nie zainstaluje się na StoL-a)."
+          else
+            echo "::error::Brak sekretu STOL_KEYSTORE_B64 — dodaj go: Settings → Secrets and variables → Actions → New repository secret."
+            exit 1
+          fi
+          # Odcisk certyfikatu (publiczny) — po nim widać, którym kluczem podpisano wydanie.
+          keytool -list -v -keystore debug.keystore -storepass android | grep -m1 'SHA256:'
 
       - name: Buduj APK
         run: gradle --no-daemon :app:assembleDebug
