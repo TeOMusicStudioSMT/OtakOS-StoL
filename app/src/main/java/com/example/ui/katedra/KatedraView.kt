@@ -253,7 +253,7 @@ private fun Parowanie(blad: String?, pracuje: Boolean, onSparuj: (String) -> Uni
         Text("Połącz StoL z Katedrą", fontSize = 22.sp, fontWeight = FontWeight.Bold)
         Text(
             "W Katedrze na komputerze otwórz Dashboard → karta „StoL” i wygeneruj link parowania. " +
-                "Zeskanuj kod QR aparatem (otworzy StoL sam) albo skopiuj link i wklej go tutaj. Link działa 5 minut i tylko raz.",
+                "Zeskanuj kod QR aparatem — otworzy się strona Katedry z przyciskiem „Otwórz w StoL” — albo skopiuj link i wklej go tutaj. Kod działa 5 minut i tylko raz.",
             fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         OutlinedTextField(
