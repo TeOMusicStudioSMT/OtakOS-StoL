@@ -132,6 +132,16 @@ class ProjektStadaTest {
         assertEquals("Linia 1\nLinia \"2\"", m["wizja"])
         assertEquals(listOf("joanna", "kupiec"), m["uczestnicy"])
         assertEquals(false, m["samoZlecanie"])
+        assertEquals(1.0, m["rundy"]); assertEquals(0.0, m["petla"])   // domyślnie: jedna runda, bez pętli
+        @Suppress("UNCHECKED_CAST")
+        val r = Json.parsuj(NowyProjekt("X", "długa wizja projektu", listOf("a", "b"), warsztat = Warsztat(8, 2)).doJson()) as Map<String, Any?>
+        assertEquals(5.0, r["rundy"]); assertEquals(2.0, r["petla"])     // w granicach mostu
+    }
+
+    @Test fun czytaRundyProjektu() {
+        @Suppress("UNCHECKED_CAST")
+        val p = ProjektStada.zJson(Json.parsuj("""{"id":"f","nazwa":"F","wizja":"W","stan":"trwa","gotowe":1,"razem":4,"kroki":[],"zlecenia":[],"runda":2,"rundy":3,"oceny":[{"runda":1,"ocena":6}]}""") as Map<String, Any?>)
+        assertEquals(Triple(2, 3, 6), Triple(p.runda, p.rundy, p.ocena))
     }
 
     /** Kształt jak services/ProjektStada.js → skrot (z polami zalozyl i zlecenia). */
@@ -193,5 +203,49 @@ class StolTest {
         assertEquals("""{"tytul":"Gra \"K\"","tresc":"a\nb c d e f g"}""", NowaKarta(" Gra \"K\" ", "a\nb c d e f g ").doJson())
         val w = MostKlient("http://127.0.0.1:1", "k".repeat(48)).polozNaStol("t", NowaKarta("", ""))
         assertEquals(MostKlient.Wynik.Blad("Nadaj propozycji tytuł."), w)   // bez rundy przez tunel
+    }
+}
+
+class RundyStoluTest {
+    @Suppress("UNCHECKED_CAST")
+    private fun k(json: String) = KartaStolu.zJson(Json.parsuj(json) as Map<String, Any?>)
+    private fun karta(etap: String, projekt: String = "") =
+        k("""{"id":"a","tytul":"Forge Fashion","etap":"$etap"${if (projekt.isNotEmpty()) ",\"projektSkrot\":$projekt" else ""}}""")
+
+    @Test fun czytaRundyIOcenySedziego() {
+        val p = karta("do_akceptacji", """{"id":"p","stan":"gotowe","gotowe":4,"razem":4,"biblia":"B","zlecenia":[],"runda":3,"rundy":3,"petla":1,
+            "oceny":[{"runda":1,"ocena":6},{"runda":2,"ocena":null},{"runda":3,"ocena":8}],"braki":["dołóż Grade"]}""").projekt!!
+        assertEquals(listOf(OcenaRundy(1, 6), OcenaRundy(2, null), OcenaRundy(3, 8)), p.oceny)
+        assertEquals(8, p.ostatniaOcena)
+        assertEquals(listOf("dołóż Grade"), p.braki)
+        assertEquals(Triple(3, 3, 1), Triple(p.runda, p.rundy, p.petla))
+        // Stary most (bez rund): jedna runda, bez ocen.
+        val stary = karta("do_akceptacji", """{"id":"p","stan":"gotowe","gotowe":1,"razem":1,"biblia":"B","zlecenia":[]}""").projekt!!
+        assertEquals(Triple(1, 1, 0), Triple(stary.runda, stary.rundy, stary.petla))
+        assertNull(stary.ostatniaOcena)
+        assertTrue(karta("do_akceptacji").moznaDoskonalic && !karta("opracowuje").moznaDoskonalic)
+    }
+
+    @Test fun warsztatWGranicachMostu() {
+        assertEquals(Warsztat(5, 0), Warsztat(9, -2).wGranicach())
+        assertEquals(Warsztat(1, 3), Warsztat(0, 7).wGranicach())
+        val w = MostKlient("http://127.0.0.1:1", "k".repeat(48)).decyzja("t", "x", AkcjaStolu.DOSKONAL, warsztat = Warsztat(2, 1))
+        assertTrue(w is MostKlient.Wynik.Blad)   // brak mostu → zdanie dla Suwerena, nie wyjątek
+    }
+
+    @Test fun zapowiedziTylkoPrzejscia() {
+        val gotowa = karta("do_akceptacji", """{"id":"p","stan":"gotowe","gotowe":4,"razem":4,"biblia":"B","zlecenia":[],"runda":2,"rundy":3,"oceny":[{"runda":2,"ocena":9}]}""")
+        assertEquals(emptyList<String>(), zapowiedziStolu(null, listOf(gotowa)))                 // pierwsze wczytanie milczy
+        assertEquals(listOf("Stół: projekt Forge Fashion gotowy do ratyfikacji po 2 rundach, zgodność z wizją 9 na 10."),
+            zapowiedziStolu(listOf(karta("opracowuje")), listOf(gotowa)))
+        assertEquals(emptyList<String>(), zapowiedziStolu(listOf(gotowa), listOf(gotowa)))       // bez zmiany — cisza
+        assertEquals(listOf("Stół: projekt Forge Fashion gotowy do ratyfikacji."),
+            zapowiedziStolu(listOf(karta("opracowuje")), listOf(karta("do_akceptacji", """{"id":"p","stan":"gotowe","gotowe":1,"razem":1,"biblia":"B","zlecenia":[]}"""))))
+        assertEquals(listOf("Stół: projekt Forge Fashion utknął. Możesz przyjąć go od nowa."), zapowiedziStolu(listOf(karta("opracowuje")), listOf(karta("utknela"))))
+        val wToku = karta("zratyfikowane", """{"id":"p","stan":"gotowe","gotowe":1,"razem":1,"biblia":"B","zlecenia":[{"modul":"merch","opis":"K","stan":"gotowe"},{"modul":"muzyka","opis":"M","stan":"trwa"}]}""")
+        val oddane = karta("zratyfikowane", """{"id":"p","stan":"gotowe","gotowe":1,"razem":1,"biblia":"B","zlecenia":[{"modul":"merch","opis":"K","stan":"gotowe"},{"modul":"muzyka","opis":"M","stan":"blad"}]}""")
+        assertEquals(emptyList<String>(), zapowiedziStolu(listOf(karta("do_akceptacji")), listOf(wToku)))
+        assertEquals(listOf("Moduły Katedry oddały zlecenia projektu Forge Fashion: 1 z 2 gotowe."), zapowiedziStolu(listOf(wToku), listOf(oddane)))
+        assertEquals(emptyList<String>(), zapowiedziStolu(listOf(oddane), listOf(oddane)))
     }
 }

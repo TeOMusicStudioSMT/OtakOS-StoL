@@ -1,6 +1,8 @@
 package com.example.ui.stol
 
 import android.app.Application
+import android.content.Context
+import android.speech.tts.TextToSpeech
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.most.AkcjaStolu
@@ -8,7 +10,9 @@ import com.example.most.Gatunek
 import com.example.most.KartaStolu
 import com.example.most.MostKlient
 import com.example.most.NowaKarta
+import com.example.most.Warsztat
 import com.example.most.ZdarzenieSzyny
+import com.example.most.zapowiedziStolu
 import com.example.ui.katedra.PolaczenieStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -18,6 +22,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.Locale
 
 /**
  * Stół ratyfikacji na telefonie — prawdziwe karty z mostu (`/api/stol`), nie atrapa z AI Studio.
@@ -41,19 +46,52 @@ data class StolUiState(
     val bladAkcji: String? = null,
     val formularz: Boolean = false,
     val komunikat: String? = null,
+    /** Zapowiedzi głosowe Stołu (gotowy projekt, utknięty, moduły oddały zlecenia). */
+    val glos: Boolean = true,
 )
 
 class StolViewModel(application: Application) : AndroidViewModel(application) {
     private val store = PolaczenieStore(application)
-    private val _ui = MutableStateFlow(StolUiState(sparowany = store.wczytaj() != null))
+    private val ustawienia = application.getSharedPreferences("stol_zapowiedzi", Context.MODE_PRIVATE)
+    private val _ui = MutableStateFlow(StolUiState(sparowany = store.wczytaj() != null, glos = ustawienia.getBoolean("glos", true)))
     val ui: StateFlow<StolUiState> = _ui.asStateFlow()
+
+    /**
+     * 🔊 Głos Stołu: syntezator mowy telefonu (lokalny, bez chmury). Mówi o PRZEJŚCIACH kart między
+     * odświeżeniami (zapowiedziStolu) — pierwsze wczytanie milczy. Działa, gdy StoL jest na ekranie.
+     */
+    @Volatile private var mowaGotowa = false
+    private val mowa: TextToSpeech = TextToSpeech(application) { status ->
+        mowaGotowa = status == TextToSpeech.SUCCESS
+        if (mowaGotowa) mowaPoPolsku()
+    }
+    private fun mowaPoPolsku() { runCatching { mowa.language = Locale("pl", "PL") } }
+    /** Karty z poprzedniego udanego odczytu — z nimi porównujemy, co się zmieniło. */
+    @Volatile private var poprzednieKarty: List<KartaStolu>? = null
+
+    fun przelaczGlos() {
+        val nowy = !_ui.value.glos
+        ustawienia.edit().putBoolean("glos", nowy).apply()
+        _ui.update { it.copy(glos = nowy) }
+        if (nowy) powiedz("Zapowiedzi Stołu włączone.") else mowa.stop()
+    }
+
+    private fun powiedz(tekst: String) {
+        if (!_ui.value.glos || !mowaGotowa) return
+        mowa.speak(tekst, TextToSpeech.QUEUE_ADD, null, "stol-${System.nanoTime()}")
+    }
+
+    override fun onCleared() {
+        mowa.stop()
+        mowa.shutdown()
+    }
 
     fun wybierz(zakladka: Int) = _ui.update { it.copy(zakladka = zakladka, otwarta = null, formularz = false) }
 
     /** Karty, szyna i stado naraz. Stary widok zostaje przy błędzie — z ostrzeżeniem. */
     fun odswiez() {
         val p = store.wczytaj()
-        if (p == null) { _ui.update { StolUiState(zakladka = it.zakladka) }; return }
+        if (p == null) { poprzednieKarty = null; _ui.update { StolUiState(zakladka = it.zakladka, glos = it.glos) }; return }
         if (_ui.value.wczytuje) return
         _ui.update { it.copy(sparowany = true, wczytuje = true) }
         viewModelScope.launch(Dispatchers.IO) {
@@ -64,6 +102,12 @@ class StolViewModel(application: Application) : AndroidViewModel(application) {
             val wk = karty.await()
             val wz = zdarzenia.await()
             val ws = stan.await()
+            (wk as? MostKlient.Wynik.Ok)?.wartosc?.let { karty ->
+                val zapowiedzi = zapowiedziStolu(poprzednieKarty, karty)
+                poprzednieKarty = karty
+                zapowiedzi.forEach(::powiedz)
+                zapowiedzi.lastOrNull()?.let { z -> _ui.update { it.copy(komunikat = z) } }
+            }
             _ui.update { u ->
                 u.copy(
                     wczytuje = false,
@@ -92,15 +136,17 @@ class StolViewModel(application: Application) : AndroidViewModel(application) {
     fun zamknij() = _ui.update { it.copy(otwarta = null, bladAkcji = null) }
 
     /** Przyjmij / odrzuć / ratyfikuj. Odmowa mostu zostaje na karcie jego słowami. */
-    fun decyzja(karta: KartaStolu, akcja: AkcjaStolu, uczestnicy: List<String> = emptyList()) {
+    fun decyzja(karta: KartaStolu, akcja: AkcjaStolu, uczestnicy: List<String> = emptyList(), warsztat: Warsztat? = null) {
         val p = store.wczytaj() ?: return
         _ui.update { it.copy(pracuje = true, bladAkcji = null) }
         viewModelScope.launch {
-            val w = withContext(Dispatchers.IO) { MostKlient(p.adres, p.klucz).decyzja(p.token, karta.id, akcja, uczestnicy) }
+            val w = withContext(Dispatchers.IO) { MostKlient(p.adres, p.klucz).decyzja(p.token, karta.id, akcja, uczestnicy, warsztat) }
             when (w) {
                 is MostKlient.Wynik.Ok -> {
                     val zdanie = when (akcja) {
-                        AkcjaStolu.PRZYJMIJ -> "„${karta.tytul}” przyjęte — stado zaczyna pracę."
+                        AkcjaStolu.PRZYJMIJ -> "„${karta.tytul}” przyjęte — stado zaczyna pracę" +
+                            (warsztat?.takeIf { it.rundy > 1 }?.let { " (${it.rundy} rund doskonalenia)" } ?: "") + "."
+                        AkcjaStolu.DOSKONAL -> "„${karta.tytul}” wraca do stada — ${warsztat?.rundy ?: 1} ${if ((warsztat?.rundy ?: 1) == 1) "runda" else "rundy"} doskonalenia."
                         AkcjaStolu.ODRZUC -> "„${karta.tytul}” odłożone ze stołu."
                         AkcjaStolu.RATYFIKUJ ->
                             if (w.wartosc > 0) "„${karta.tytul}” zratyfikowane — stado zleca ${w.wartosc} zadań modułom Katedry."

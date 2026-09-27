@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import com.example.most.Gatunek
 import com.example.most.NowyProjekt
 import com.example.most.ProjektStada
+import com.example.ui.stol.WyborWarsztatu
 
 /*
  * 🧩 Projekty stada na telefonie: karta projektu i natywny formularz nowego projektu.
@@ -52,6 +53,8 @@ internal fun KartaProjektu(p: ProjektStada) {
             Text(
                 buildString {
                     append(STAN_PROJEKTU[p.stan] ?: p.stan).append(" · ").append("${p.gotowe}/${p.razem} wkładów")
+                    if (p.rundy > 1) append(" · runda ${p.runda}/${p.rundy}")
+                    p.ocena?.let { append(" · Sędzia $it/10") }
                     if (p.zlecenia.isNotEmpty()) append(" · zlecenia ${p.zleceniaGotowe}/${p.zlecenia.size}")
                     p.zalozyl?.let { append(" · z „$it”") }
                 },
@@ -90,7 +93,8 @@ internal fun FormularzProjektu(
     var wizja by remember { mutableStateOf("") }
     var wybrani by remember { mutableStateOf(wyklute.map { it.id }.toSet()) }
     var samoZlecanie by remember { mutableStateOf(true) }
-    val projekt = NowyProjekt(nazwa, wizja, wyklute.map { it.id }.filter { it in wybrani }, samoZlecanie)
+    var warsztat by remember { mutableStateOf(com.example.most.Warsztat()) }
+    val projekt = NowyProjekt(nazwa, wizja, wyklute.map { it.id }.filter { it in wybrani }, samoZlecanie, warsztat)
     val brak = projekt.brak()
 
     Column(
@@ -132,6 +136,7 @@ internal fun FormularzProjektu(
             }
             Switch(checked = samoZlecanie, onCheckedChange = { samoZlecanie = it }, enabled = !zakladanie)
         }
+        WyborWarsztatu(warsztat, zakladanie, zPetla = true) { warsztat = it }
         Button(onClick = { onZaloz(projekt) }, enabled = !zakladanie && brak == null, modifier = Modifier.fillMaxWidth()) {
             Text(if (zakladanie) "Wysyłam do Katedry…" else "Zacznijcie razem")
         }
