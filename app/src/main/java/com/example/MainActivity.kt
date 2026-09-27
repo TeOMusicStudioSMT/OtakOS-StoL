@@ -12,8 +12,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ui.StolApp
-import com.example.ui.StolViewModel
 import com.example.ui.katedra.KatedraViewModel
+import com.example.ui.stol.StolViewModel
 import com.example.ui.theme.MyApplicationTheme
 
 class MainActivity : ComponentActivity() {
@@ -31,7 +31,7 @@ class MainActivity : ComponentActivity() {
         val viewModel: StolViewModel = viewModel()
         LaunchedEffect(pokazKatedre.value) {
           if (pokazKatedre.value) {
-            viewModel.selectTab(4)
+            viewModel.wybierz(4)
             pokazKatedre.value = false
           }
         }
