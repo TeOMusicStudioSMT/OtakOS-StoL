@@ -7,8 +7,8 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -86,25 +87,24 @@ fun MarbleBackground(
     Box(
         modifier = modifier
             .fillMaxSize()
+            // Światło za palcem tylko PODGLĄDA dotyk (przebieg Final, nic nie konsumuje).
+            // Suweren (2026-09-27): w świecie klocków (WebView) nic się nie przewijało.
+            // detectDragGestures zjadał ruch palca, a Compose podaje WebView ruchy dopiero
+            // w przebiegu Final — zjedzony ruch = ACTION_CANCEL dla WebView, więc strona
+            // nie mogła przewinąć szuflady. Listy Compose tego nie czuły (dostają ruch przed
+            // rodzicem), widoki Androida tak.
             .pointerInput(Unit) {
-                detectTapGestures(
-                    onPress = { offset ->
-                        touchPoint = offset
-                        tryAwaitRelease()
-                        touchPoint = null
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Final)
+                    touchPoint = down.position
+                    while (true) {
+                        val zdarzenie = awaitPointerEvent(PointerEventPass.Final)
+                        val palec = zdarzenie.changes.firstOrNull { it.id == down.id } ?: break
+                        if (!palec.pressed) break
+                        touchPoint = palec.position
                     }
-                )
-            }
-            .pointerInput(Unit) {
-                detectDragGestures(
-                    onDragStart = { offset -> touchPoint = offset },
-                    onDrag = { change, _ ->
-                        touchPoint = change.position
-                        change.consume()
-                    },
-                    onDragEnd = { touchPoint = null },
-                    onDragCancel = { touchPoint = null }
-                )
+                    touchPoint = null
+                }
             }
     ) {
         // 1. High-fidelity vertical marble image base
