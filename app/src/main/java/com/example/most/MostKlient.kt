@@ -75,7 +75,7 @@ class MostKlient(
     /**
      * Decyzja Suwerena nad kartą: przyjmij (→ Projekt Stada; `uczestnicy` = id TeOgochi, pusta lista =
      * sugerowani z karty albo całe stado), odrzuć, ratyfikuj (→ zlecenia modułów), doskonal (→ kolejne rundy).
-     * `warsztat` (przyjmij, doskonal): rundy doskonalenia i pętla kreatywna. Odmowę mostu
+     * `warsztat` (przyjmij, doskonal, nocna): rundy doskonalenia, pętla kreatywna, powtórzenia na noc. Odmowę mostu
      * (np. „stado pracuje już nad innym projektem") oddaje jego słowami; świeży etap daje kolejne `stol()`.
      * Ok niesie liczbę zleceń modułów (tylko ratyfikacja ją ma; reszta = 0).
      */
@@ -85,7 +85,7 @@ class MostKlient(
         val w = warsztat?.wGranicach()
         val cialo = buildString {
             append("{\"uczestnicy\":[").append(uczestnicy.distinct().joinToString(",") { jsonNapis(it) }).append(']')
-            if (w != null) append(",\"rundy\":").append(w.rundy).append(",\"petla\":").append(w.petla)
+            if (w != null) append(",\"rundy\":").append(w.rundy).append(",\"petla\":").append(w.petla).append(",\"powtorzenia\":").append(w.powtorzenia)
             append('}')
         }
         return zapytaj("POST", "/api/stol/${sciezkaId(id)}/${akcja.sciezka}", cialo, mapOf("X-Stado-Token" to token)) { m ->

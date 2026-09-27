@@ -249,3 +249,24 @@ class RundyStoluTest {
         assertEquals(emptyList<String>(), zapowiedziStolu(listOf(oddane), listOf(oddane)))
     }
 }
+
+class NocnaStoluTest {
+    @Suppress("UNCHECKED_CAST")
+    private fun k(json: String) = KartaStolu.zJson(Json.parsuj(json) as Map<String, Any?>)
+    private val projekt = """{"id":"p","stan":"gotowe","gotowe":1,"razem":1,"biblia":"B","zlecenia":[]}"""
+
+    @Test fun czytaNocnaKarty() {
+        val karta = k("""{"id":"a","tytul":"F","etap":"zratyfikowane","projektSkrot":$projekt,
+            "nocna":{"wlaczona":false,"zadania":[{"id":"nz-1","stan":"czeka","wykonane":1,"powtorzenia":3,"rundy":2,"blad":null}]}}""")
+        assertEquals(NocnaKarty(false, listOf(NocneZadanie("nz-1", "czeka", 1, 3, 2, null))), karta.nocna)
+        assertTrue(karta.moznaDoskonalic && karta.moznaNaNoc)                     // po ratyfikacji też
+        assertNull(k("""{"id":"b","tytul":"F","etap":"na_stole"}""").nocna)      // stary most / bez projektu
+        assertTrue(!k("""{"id":"b","tytul":"F","etap":"na_stole"}""").moznaNaNoc)
+        assertTrue(k("""{"id":"c","tytul":"F","etap":"opracowuje","projektSkrot":$projekt}""").let { it.moznaNaNoc && !it.moznaDoskonalic })
+    }
+
+    @Test fun powtorzeniaWGranicach() {
+        assertEquals(Warsztat(2, 1, 20), Warsztat(2, 1, 99).wGranicach())
+        assertEquals(1, Warsztat(powtorzenia = 0).wGranicach().powtorzenia)
+    }
+}

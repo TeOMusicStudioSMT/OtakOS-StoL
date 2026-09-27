@@ -147,6 +147,8 @@ class StolViewModel(application: Application) : AndroidViewModel(application) {
                         AkcjaStolu.PRZYJMIJ -> "„${karta.tytul}” przyjęte — stado zaczyna pracę" +
                             (warsztat?.takeIf { it.rundy > 1 }?.let { " (${it.rundy} rund doskonalenia)" } ?: "") + "."
                         AkcjaStolu.DOSKONAL -> "„${karta.tytul}” wraca do stada — ${warsztat?.rundy ?: 1} ${if ((warsztat?.rundy ?: 1) == 1) "runda" else "rundy"} doskonalenia."
+                        AkcjaStolu.NOCNA -> "„${karta.tytul}” na Nocnej Zmianie: ${warsztat?.powtorzenia ?: 1} × ${warsztat?.rundy ?: 1} rund" +
+                            (if (karta.nocna?.wlaczona == false) " — włącz Zmianę w Katedrze, inaczej poczeka." else ".")
                         AkcjaStolu.ODRZUC -> "„${karta.tytul}” odłożone ze stołu."
                         AkcjaStolu.RATYFIKUJ ->
                             if (w.wartosc > 0) "„${karta.tytul}” zratyfikowane — stado zleca ${w.wartosc} zadań modułom Katedry."
