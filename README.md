@@ -44,6 +44,11 @@ Karty propozycji z mostu (`/api/stol`, services/Stol.js w Katedrze), wygląd z A
 - **Karta**: „Przyjmij → Projekt Stada” (uczestnicy: proponowani w karcie, do odznaczenia),
   po Biblii projektu „Ratyfikuj → moduły Katedry” (dopiero wtedy Marketplace, muzyka, 3D, wideo
   dostają zlecenia), „Odłóż ze stołu”, zapis decyzji.
+- **Rundy doskonalenia i pętla kreatywna** (przy przyjęciu i w „Doskonal” zamiast ratyfikacji): stado
+  robi 1–5 rund; po każdej Sędzia ocenia Biblię względem wizji (0–10) i wypisuje braki, na których
+  następna runda buduje; ≥ 9/10 kończy wcześniej. Pętla (0–3) — każdy punkt planu szlifowany krytycznie.
+- **Głos Stołu** 🔊: syntezator mowy telefonu (lokalnie) mówi, gdy projekt jest gotowy do ratyfikacji
+  (z rundami i oceną), gdy utknie i gdy moduły oddadzą zlecenia. Tylko gdy StoL jest otwarty; przełącznik w nagłówku.
 - **Izba Akceptacji**: tylko to, co czeka na Suwerena; liczba na plakietce.
 - **Historia**: szyna zdarzeń Katedry (`/api/szyna/zdarzenia`), domyślnie Stół i projekty.
 - **Agenci**: stado TeOgochi z mostu (forma, dziedzina, XP, co ostatnio zrobił).

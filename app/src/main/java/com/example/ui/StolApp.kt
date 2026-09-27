@@ -19,6 +19,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -88,14 +90,14 @@ fun StolApp(
     var oswietlenie by remember { mutableStateOf(TableLightingMode.PEARL_OPAL) }
     val cyklZycia = LocalLifecycleOwner.current
 
-    // Stół żyje z mostu: odświeżanie co 10 s, tylko na zakładkach stołu i tylko gdy apka jest na ekranie.
+    // Stół żyje z mostu: co 10 s na zakładkach stołu, co 30 s gdzie indziej (zapowiedzi głosowe muszą
+    // słyszeć koniec projektu także, gdy patrzysz na Katedrę) — tylko gdy apka jest na ekranie.
     LaunchedEffect(ui.zakladka) {
-        if (ui.zakladka in 0..3) {
-            cyklZycia.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                while (true) {
-                    viewModel.odswiez()
-                    delay(10_000)
-                }
+        val coIle = if (ui.zakladka in 0..3) 10_000L else 30_000L
+        cyklZycia.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                viewModel.odswiez()
+                delay(coIle)
             }
         }
     }
@@ -114,7 +116,7 @@ fun StolApp(
             snackbarHost = { SnackbarHost(snackbar) },
             topBar = {
                 if (ui.zakladka != 4) {
-                    NaglowekStolu(ui.karty, onOswietlenie = {
+                    NaglowekStolu(ui.karty, glos = ui.glos, onGlos = { viewModel.przelaczGlos() }, onOswietlenie = {
                         oswietlenie = TableLightingMode.entries[(oswietlenie.ordinal + 1) % TableLightingMode.entries.size]
                     })
                 }
@@ -149,7 +151,7 @@ fun StolApp(
                         wyklute = ui.gatunki.filter { it.wyklute },
                         pracuje = ui.pracuje,
                         blad = ui.bladAkcji,
-                        onDecyzja = { akcja, uczestnicy -> viewModel.decyzja(otwarta, akcja, uczestnicy) },
+                        onDecyzja = { akcja, uczestnicy, warsztat -> viewModel.decyzja(otwarta, akcja, uczestnicy, warsztat) },
                         onZamknij = { viewModel.zamknij() }
                     )
                     ui.formularz -> FormularzKarty(
@@ -169,7 +171,7 @@ fun StolApp(
 }
 
 @Composable
-private fun NaglowekStolu(karty: List<KartaStolu>, onOswietlenie: () -> Unit) {
+private fun NaglowekStolu(karty: List<KartaStolu>, glos: Boolean, onGlos: () -> Unit, onOswietlenie: () -> Unit) {
     val ciemny = isSystemInDarkTheme()
     Surface(
         color = if (ciemny) Color(0xD0101724) else Color(0xDCFFFFFF),
@@ -197,6 +199,13 @@ private fun NaglowekStolu(karty: List<KartaStolu>, onOswietlenie: () -> Unit) {
                         "Stół ratyfikacji Katedry OtakOS",
                         style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                IconButton(onClick = onGlos, modifier = Modifier.testTag("btn_glos_stolu")) {
+                    Icon(
+                        if (glos) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff,
+                        contentDescription = if (glos) "Zapowiedzi głosowe włączone" else "Zapowiedzi głosowe wyłączone",
+                        tint = if (glos) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 IconButton(onClick = onOswietlenie) {

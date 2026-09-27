@@ -49,6 +49,7 @@ import com.example.most.AkcjaStolu
 import com.example.most.Gatunek
 import com.example.most.KartaStolu
 import com.example.most.NowaKarta
+import com.example.most.Warsztat
 import com.example.most.ZdarzenieSzyny
 import com.example.most.czasIso
 import com.example.most.ileTemu
@@ -116,6 +117,8 @@ fun KartaNaStole(k: KartaStolu, onOtworz: () -> Unit) {
             Text(
                 buildString {
                     append("Projekt Stada: ${p.gotowe}/${p.razem} wkładów")
+                    if (p.rundy > 1) append(" · runda ${p.runda}/${p.rundy}")
+                    p.ostatniaOcena?.let { append(" · Sędzia $it/10") }
                     if (p.zlecenia.isNotEmpty()) append(" · zlecenia ${p.zlecenia.count { it.stan == "gotowe" }}/${p.zlecenia.size}")
                 },
                 fontSize = 12.sp, color = kolor(k.etap),
@@ -279,9 +282,11 @@ fun KartaOtwarta(
     wyklute: List<Gatunek>,
     pracuje: Boolean,
     blad: String?,
-    onDecyzja: (AkcjaStolu, List<String>) -> Unit,
+    onDecyzja: (AkcjaStolu, List<String>, Warsztat?) -> Unit,
     onZamknij: () -> Unit,
 ) {
+    // Przyjęcie: ile rund doskonalenia i ile pętli na punkt planu. Doskonalenie: ile rund jeszcze.
+    var warsztat by remember(k.id) { mutableStateOf(Warsztat(rundy = 1, petla = k.projekt?.petla ?: 0)) }
     // Domyślnie: zaproponowani w karcie (po imieniu albo id), a gdy mniej niż dwóch — całe wyklute stado.
     val proponowani = wyklute.filter { g -> k.sugerowani.any { it.equals(g.imie, true) || it.equals(g.id, true) } }.map { it.id }
     var wybrani by remember(k.id, wyklute) { mutableStateOf((if (proponowani.size >= 2) proponowani else wyklute.map { it.id }).toSet()) }
@@ -326,9 +331,13 @@ fun KartaOtwarta(
                     val obcy = k.sugerowani.filter { s -> wyklute.none { it.imie.equals(s, true) || it.id.equals(s, true) } }
                     if (obcy.isNotEmpty() && wyklute.isNotEmpty()) Text("Jeszcze nie wykluci: ${obcy.joinToString(", ")}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+                Marmur {
+                    Text("Jak ma pracować stado", fontWeight = FontWeight.SemiBold)
+                    WyborWarsztatu(warsztat, pracuje, zPetla = true) { warsztat = it }
+                }
                 val zaMalo = wyklute.isNotEmpty() && wybrani.size < 2
                 Button(
-                    onClick = { onDecyzja(AkcjaStolu.PRZYJMIJ, if (wyklute.isEmpty()) emptyList() else wyklute.map { it.id }.filter { it in wybrani }) },
+                    onClick = { onDecyzja(AkcjaStolu.PRZYJMIJ, if (wyklute.isEmpty()) emptyList() else wyklute.map { it.id }.filter { it in wybrani }, warsztat) },
                     enabled = !pracuje && !zaMalo, modifier = Modifier.fillMaxWidth(),
                 ) { Text(if (pracuje) "Wysyłam do Katedry…" else "Przyjmij → Projekt Stada") }
                 if (zaMalo) Text("Wspólny projekt potrzebuje co najmniej dwóch TeOgochi.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -336,20 +345,38 @@ fun KartaOtwarta(
             }
             "opracowuje" -> Marmur(akcent = kolor("opracowuje")) {
                 Text("Stado pracuje", fontWeight = FontWeight.SemiBold)
-                k.projekt?.let { Text("${it.gotowe}/${it.razem} wkładów gotowych. Gdy powstanie Biblia, karta wróci do Izby Akceptacji.", fontSize = 13.sp) }
+                k.projekt?.let {
+                    if (it.rundy > 1) Text("Runda ${it.runda} z ${it.rundy}${if (it.petla > 0) " · pętla kreatywna ×${it.petla}" else ""}", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = kolor("opracowuje"))
+                    Text("${it.gotowe}/${it.razem} wkładów gotowych w tej rundzie. Gdy powstanie Biblia, karta wróci do Izby Akceptacji.", fontSize = 13.sp)
+                }
+                k.projekt?.let { OcenySedziego(it.oceny, it.braki) }
             }
             "do_akceptacji" -> {
                 Marmur(akcent = kolor("do_akceptacji")) {
                     Text("Biblia projektu", fontWeight = FontWeight.SemiBold)
                     val biblia = k.projekt?.biblia.orEmpty()
                     Text(biblia.ifBlank { "Scalenie nie powstało — projekt skończył się z brakami. Możesz ratyfikować to, co jest, albo odłożyć kartę." }, fontSize = 13.sp)
-                    k.projekt?.let { Text("Wkłady: ${it.gotowe}/${it.razem}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    k.projekt?.let { Text("Wkłady: ${it.gotowe}/${it.razem}${if (it.rundy > 1) " · po ${it.runda} z ${it.rundy} rund" else ""}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
+                k.projekt?.takeIf { it.oceny.isNotEmpty() }?.let { p -> Marmur { OcenySedziego(p.oceny, p.braki) } }
                 Button(
-                    onClick = { onDecyzja(AkcjaStolu.RATYFIKUJ, emptyList()) }, enabled = !pracuje, modifier = Modifier.fillMaxWidth(),
+                    onClick = { onDecyzja(AkcjaStolu.RATYFIKUJ, emptyList(), null) }, enabled = !pracuje, modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = kolor("zratyfikowane")),
                 ) { Text(if (pracuje) "Wysyłam do Katedry…" else "Ratyfikuj → moduły Katedry") }
                 Text("Ratyfikacja zleca modułom to, co przewidziały wkłady stada (produkty do Marketplace, muzykę, bryły 3D, wideo).", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (k.moznaDoskonalic) {
+                    Marmur(akcent = kolor("opracowuje")) {
+                        Text("Jeszcze nie to? Doskonal", fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "Stado dołoży kolejne cegiełki na brakach Sędziego — każdy na swoim poprzednim wkładzie. Ocena ${Warsztat.CEL_OCENY}/10 kończy wcześniej.",
+                            fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        WyborWarsztatu(warsztat, pracuje, zPetla = true) { warsztat = it }
+                        OutlinedButton(onClick = { onDecyzja(AkcjaStolu.DOSKONAL, emptyList(), warsztat) }, enabled = !pracuje, modifier = Modifier.fillMaxWidth()) {
+                            Text(if (pracuje) "Wysyłam do Katedry…" else "Doskonal → ${warsztat.rundy} ${if (warsztat.rundy == 1) "runda" else if (warsztat.rundy < 5) "rundy" else "rund"}")
+                        }
+                    }
+                }
             }
             "zratyfikowane" -> Marmur(akcent = kolor("zratyfikowane")) {
                 Text("Zlecenia modułów", fontWeight = FontWeight.SemiBold)
@@ -366,18 +393,51 @@ fun KartaOtwarta(
         }
 
         if (k.moznaOdrzucic) {
-            OutlinedButton(onClick = { onDecyzja(AkcjaStolu.ODRZUC, emptyList()) }, enabled = !pracuje, modifier = Modifier.fillMaxWidth()) { Text("Odłóż ze stołu") }
+            OutlinedButton(onClick = { onDecyzja(AkcjaStolu.ODRZUC, emptyList(), null) }, enabled = !pracuje, modifier = Modifier.fillMaxWidth()) { Text("Odłóż ze stołu") }
         }
         blad?.let { Text("⚠️ $it", fontSize = 13.sp, color = CZERWONY) }
 
         if (k.decyzje.isNotEmpty()) {
             Text("Decyzje", fontWeight = FontWeight.SemiBold)
             k.decyzje.forEach { d ->
-                val co = mapOf("przyjeta" to "przyjął", "odrzucona" to "odłożył", "zratyfikowana" to "zratyfikował")[d.co] ?: d.co
+                val co = mapOf("przyjeta" to "przyjął", "odrzucona" to "odłożył", "zratyfikowana" to "zratyfikował", "doskonalona" to "odesłał do doskonalenia")[d.co] ?: d.co
                 Text("• ${d.kto} $co · ${kiedy(d.kiedy)}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         Spacer(Modifier.size(40.dp))
+    }
+}
+
+/** Oceny Sędziego po rundach (zgodność Biblii z wizją) i braki, na których stado buduje dalej. */
+@Composable
+private fun OcenySedziego(oceny: List<com.example.most.OcenaRundy>, braki: List<String>) {
+    if (oceny.isEmpty()) return
+    Text("⚖️ Sędzia: zgodność z wizją", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+    Text(oceny.joinToString("  →  ") { "R${it.runda}: ${it.ocena?.let { o -> "$o/10" } ?: "—"}" }, fontSize = 13.sp)
+    braki.forEach { Text("· $it", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+}
+
+/** Liczba z przyciskami − / + (rundy, pętla) — palcem na telefonie łatwiej niż pole tekstowe. */
+@Composable
+private fun Licznik(etykieta: String, wartosc: Int, zakres: IntRange, wlaczony: Boolean, onZmiana: (Int) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(etykieta, fontSize = 13.sp, modifier = Modifier.weight(1f))
+        TextButton(onClick = { onZmiana(wartosc - 1) }, enabled = wlaczony && wartosc > zakres.first) { Text("−", fontSize = 18.sp) }
+        Text("$wartosc", fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(24.dp))
+        TextButton(onClick = { onZmiana(wartosc + 1) }, enabled = wlaczony && wartosc < zakres.last) { Text("+", fontSize = 18.sp) }
+    }
+}
+
+/** Rundy doskonalenia i pętla kreatywna na punkt planu — w granicach mostu. */
+@Composable
+fun WyborWarsztatu(w: Warsztat, pracuje: Boolean, zPetla: Boolean, onZmiana: (Warsztat) -> Unit) {
+    Column {
+        Licznik("Rundy doskonalenia", w.rundy, 1..Warsztat.MAX_RUND, !pracuje) { onZmiana(w.copy(rundy = it)) }
+        if (zPetla) Licznik("Pętla kreatywna na punkt planu", w.petla, 0..Warsztat.MAX_PETLI, !pracuje) { onZmiana(w.copy(petla = it)) }
+        if (w.rundy > 1 || w.petla > 0) Text(
+            "Małe lokalne modele potrzebują kilku przejść — każda runda i pętla to kolejne minuty pracy karty graficznej.",
+            fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

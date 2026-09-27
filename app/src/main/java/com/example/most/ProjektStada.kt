@@ -23,6 +23,10 @@ data class ProjektStada(
     val razem: Int,
     val kroki: List<KrokProjektu>,
     val zlecenia: List<ZlecenieProjektu>,
+    /** Rundy doskonalenia (która / ile) i ostatnia ocena Sędziego 0–10 (null = jeszcze nie oceniał). */
+    val runda: Int = 1,
+    val rundy: Int = 1,
+    val ocena: Int? = null,
 ) {
     val zleceniaGotowe: Int get() = zlecenia.count { it.stan == "gotowe" }
 
@@ -46,6 +50,9 @@ data class ProjektStada(
                     )
                 }
             },
+            runda = m.liczba("runda")?.toInt() ?: 1,
+            rundy = m.liczba("rundy")?.toInt() ?: 1,
+            ocena = (m.lista("oceny").lastOrNull() as? Map<String, Any?>)?.liczba("ocena")?.toInt(),
             zlecenia = m.lista("zlecenia").mapNotNull { z ->
                 (z as? Map<String, Any?>)?.let {
                     ZlecenieProjektu(
@@ -67,6 +74,8 @@ data class NowyProjekt(
     val wizja: String,
     val uczestnicy: List<String>,
     val samoZlecanie: Boolean = true,
+    /** Rundy doskonalenia i pętla kreatywna na punkt planu (Warsztat: 1–5, 0–3). */
+    val warsztat: Warsztat = Warsztat(),
 ) {
     /** null = można wysyłać; inaczej zdanie dla Suwerena. */
     fun brak(): String? = when {
@@ -81,6 +90,8 @@ data class NowyProjekt(
         append(",\"wizja\":").append(jsonNapis(wizja.trim().take(MAX_WIZJI)))
         append(",\"uczestnicy\":[").append(uczestnicy.distinct().joinToString(",") { jsonNapis(it) }).append(']')
         append(",\"samoZlecanie\":").append(samoZlecanie)
+        val w = warsztat.wGranicach()
+        append(",\"rundy\":").append(w.rundy).append(",\"petla\":").append(w.petla)
         append('}')
     }
 

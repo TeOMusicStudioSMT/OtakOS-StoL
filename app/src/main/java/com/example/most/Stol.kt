@@ -12,6 +12,9 @@ data class Decyzja(val co: String, val kto: String, val kiedy: String?)
 
 data class ZlecenieKarty(val modul: String, val opis: String, val stan: String)
 
+/** Ocena Sędziego po rundzie: zgodność Biblii z wizją 0–10 (null = model nie trzymał formatu). */
+data class OcenaRundy(val runda: Int, val ocena: Int?)
+
 data class ProjektKarty(
     val id: String,
     val stan: String,
@@ -20,7 +23,16 @@ data class ProjektKarty(
     /** Biblia projektu (scalenie wkładów) — pusta, dopóki stado nie skończy. */
     val biblia: String,
     val zlecenia: List<ZlecenieKarty>,
-)
+    /** Rundy doskonalenia: która teraz i ile w planie; pętla kreatywna na punkt planu. */
+    val runda: Int = 1,
+    val rundy: Int = 1,
+    val petla: Int = 0,
+    val oceny: List<OcenaRundy> = emptyList(),
+    /** Braki wskazane przez Sędziego po ostatniej rundzie — na nich stado buduje dalej. */
+    val braki: List<String> = emptyList(),
+) {
+    val ostatniaOcena: Int? get() = oceny.lastOrNull()?.ocena
+}
 
 data class KartaStolu(
     val id: String,
@@ -39,6 +51,8 @@ data class KartaStolu(
     val moznaPrzyjac: Boolean get() = etap == "na_stole" || etap == "utknela"
     val moznaOdrzucic: Boolean get() = etap == "na_stole" || etap == "utknela" || etap == "do_akceptacji"
     val moznaRatyfikowac: Boolean get() = etap == "do_akceptacji"
+    /** Zamiast ratyfikacji: kolejne rundy doskonalenia na brakach Sędziego. */
+    val moznaDoskonalic: Boolean get() = etap == "do_akceptacji"
     /** Czeka na decyzję Suwerena (Izba Akceptacji). */
     val czekaNaSuwerena: Boolean get() = moznaPrzyjac || moznaRatyfikowac
 
@@ -67,6 +81,13 @@ data class KartaStolu(
                         zlecenia = it.lista("zlecenia").mapNotNull { z ->
                             (z as? Map<String, Any?>)?.let { x -> ZlecenieKarty(x.napis("modul").orEmpty(), x.napis("opis").orEmpty(), x.napis("stan") ?: "czeka") }
                         },
+                        runda = it.liczba("runda")?.toInt() ?: 1,
+                        rundy = it.liczba("rundy")?.toInt() ?: 1,
+                        petla = it.liczba("petla")?.toInt() ?: 0,
+                        oceny = it.lista("oceny").mapNotNull { o ->
+                            (o as? Map<String, Any?>)?.let { x -> OcenaRundy(x.liczba("runda")?.toInt() ?: 1, x.liczba("ocena")?.toInt()) }
+                        },
+                        braki = it.lista("braki").mapNotNull { b -> b as? String },
                     )
                 },
             )
@@ -91,7 +112,21 @@ data class KartaStolu(
 }
 
 /** Decyzja Suwerena nad kartą — trasa `POST /api/stol/:id/<akcja>`. */
-enum class AkcjaStolu(val sciezka: String) { PRZYJMIJ("przyjmij"), ODRZUC("odrzuc"), RATYFIKUJ("ratyfikuj") }
+enum class AkcjaStolu(val sciezka: String) { PRZYJMIJ("przyjmij"), ODRZUC("odrzuc"), RATYFIKUJ("ratyfikuj"), DOSKONAL("doskonal") }
+
+/**
+ * Jak stado ma pracować nad kartą: rundy doskonalenia (1–5, Sędzia ocenia po każdej, ≥ 9/10 kończy
+ * wcześniej) i pętla kreatywna na każdym punkcie planu (0–3). Te same granice co w moście.
+ */
+data class Warsztat(val rundy: Int = 1, val petla: Int = 0) {
+    fun wGranicach() = Warsztat(rundy.coerceIn(1, MAX_RUND), petla.coerceIn(0, MAX_PETLI))
+
+    companion object {
+        const val MAX_RUND = 5
+        const val MAX_PETLI = 3
+        const val CEL_OCENY = 9
+    }
+}
 
 /** Nowa karta z telefonu. Te same zasady co w moście (Stol.dodaj), żeby braki widać było od razu. */
 data class NowaKarta(val tytul: String, val tresc: String) {
@@ -108,5 +143,33 @@ data class NowaKarta(val tytul: String, val tresc: String) {
         const val MIN_TRESCI = 10
         const val MAX_TYTULU = 80
         const val MAX_TRESCI = 20_000
+    }
+}
+
+/**
+ * 🔊 Co Stół ma powiedzieć na głos po odświeżeniu (Suweren: „niech stół ma powiadomienie głosowe,
+ * jak wykona projekt"). Tylko PRZEJŚCIA między odczytami — pierwsze wczytanie (`przed` = null) milczy,
+ * żeby otwarcie apki nie odczytywało całego stołu.
+ */
+fun zapowiedziStolu(przed: List<KartaStolu>?, po: List<KartaStolu>): List<String> {
+    if (przed == null) return emptyList()
+    val stare = przed.associateBy { it.id }
+    return po.mapNotNull { k ->
+        val s = stare[k.id] ?: return@mapNotNull null
+        val p = k.projekt
+        when {
+            k.etap == "do_akceptacji" && s.etap != "do_akceptacji" -> buildString {
+                append("Stół: projekt ").append(k.tytul).append(" gotowy do ratyfikacji")
+                if (p != null && p.rundy > 1) append(" po ").append(p.runda).append(if (p.runda == 1) " rundzie" else " rundach")
+                p?.ostatniaOcena?.let { append(", zgodność z wizją ").append(it).append(" na 10") }
+                append('.')
+            }
+            k.etap == "utknela" && s.etap != "utknela" -> "Stół: projekt ${k.tytul} utknął. Możesz przyjąć go od nowa."
+            k.etap == "zratyfikowane" && p != null && p.zlecenia.isNotEmpty() &&
+                p.zlecenia.none { it.stan == "czeka" || it.stan == "trwa" } &&
+                (s.projekt?.zlecenia.orEmpty().let { z -> z.isEmpty() || z.any { it.stan == "czeka" || it.stan == "trwa" } }) ->
+                "Moduły Katedry oddały zlecenia projektu ${k.tytul}: ${p.zlecenia.count { it.stan == "gotowe" }} z ${p.zlecenia.size} gotowe."
+            else -> null
+        }
     }
 }

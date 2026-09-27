@@ -74,12 +74,20 @@ class MostKlient(
 
     /**
      * Decyzja Suwerena nad kartą: przyjmij (→ Projekt Stada; `uczestnicy` = id TeOgochi, pusta lista =
-     * sugerowani z karty albo całe stado), odrzuć, ratyfikuj (→ zlecenia modułów). Odmowę mostu
+     * sugerowani z karty albo całe stado), odrzuć, ratyfikuj (→ zlecenia modułów), doskonal (→ kolejne rundy).
+     * `warsztat` (przyjmij, doskonal): rundy doskonalenia i pętla kreatywna. Odmowę mostu
      * (np. „stado pracuje już nad innym projektem") oddaje jego słowami; świeży etap daje kolejne `stol()`.
      * Ok niesie liczbę zleceń modułów (tylko ratyfikacja ją ma; reszta = 0).
      */
-    fun decyzja(token: String, id: String, akcja: AkcjaStolu, uczestnicy: List<String> = emptyList()): Wynik<Int> {
-        val cialo = "{\"uczestnicy\":[${uczestnicy.distinct().joinToString(",") { jsonNapis(it) }}]}"
+    fun decyzja(
+        token: String, id: String, akcja: AkcjaStolu, uczestnicy: List<String> = emptyList(), warsztat: Warsztat? = null,
+    ): Wynik<Int> {
+        val w = warsztat?.wGranicach()
+        val cialo = buildString {
+            append("{\"uczestnicy\":[").append(uczestnicy.distinct().joinToString(",") { jsonNapis(it) }).append(']')
+            if (w != null) append(",\"rundy\":").append(w.rundy).append(",\"petla\":").append(w.petla)
+            append('}')
+        }
         return zapytaj("POST", "/api/stol/${sciezkaId(id)}/${akcja.sciezka}", cialo, mapOf("X-Stado-Token" to token)) { m ->
             m.liczba("zlecenia")?.toInt() ?: 0
         }
