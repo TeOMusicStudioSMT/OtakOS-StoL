@@ -364,19 +364,6 @@ fun KartaOtwarta(
                     colors = ButtonDefaults.buttonColors(containerColor = kolor("zratyfikowane")),
                 ) { Text(if (pracuje) "Wysyłam do Katedry…" else "Ratyfikuj → moduły Katedry") }
                 Text("Ratyfikacja zleca modułom to, co przewidziały wkłady stada (produkty do Marketplace, muzykę, bryły 3D, wideo).", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (k.moznaDoskonalic) {
-                    Marmur(akcent = kolor("opracowuje")) {
-                        Text("Jeszcze nie to? Doskonal", fontWeight = FontWeight.SemiBold)
-                        Text(
-                            "Stado dołoży kolejne cegiełki na brakach Sędziego — każdy na swoim poprzednim wkładzie. Ocena ${Warsztat.CEL_OCENY}/10 kończy wcześniej.",
-                            fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        WyborWarsztatu(warsztat, pracuje, zPetla = true) { warsztat = it }
-                        OutlinedButton(onClick = { onDecyzja(AkcjaStolu.DOSKONAL, emptyList(), warsztat) }, enabled = !pracuje, modifier = Modifier.fillMaxWidth()) {
-                            Text(if (pracuje) "Wysyłam do Katedry…" else "Doskonal → ${warsztat.rundy} ${if (warsztat.rundy == 1) "runda" else if (warsztat.rundy < 5) "rundy" else "rund"}")
-                        }
-                    }
-                }
             }
             "zratyfikowane" -> Marmur(akcent = kolor("zratyfikowane")) {
                 Text("Zlecenia modułów", fontWeight = FontWeight.SemiBold)
@@ -392,6 +379,8 @@ fun KartaOtwarta(
             }
         }
 
+        if (k.moznaNaNoc) WarsztatKarty(k, warsztat, pracuje, onDecyzja) { warsztat = it }
+
         if (k.moznaOdrzucic) {
             OutlinedButton(onClick = { onDecyzja(AkcjaStolu.ODRZUC, emptyList(), null) }, enabled = !pracuje, modifier = Modifier.fillMaxWidth()) { Text("Odłóż ze stołu") }
         }
@@ -400,7 +389,7 @@ fun KartaOtwarta(
         if (k.decyzje.isNotEmpty()) {
             Text("Decyzje", fontWeight = FontWeight.SemiBold)
             k.decyzje.forEach { d ->
-                val co = mapOf("przyjeta" to "przyjął", "odrzucona" to "odłożył", "zratyfikowana" to "zratyfikował", "doskonalona" to "odesłał do doskonalenia")[d.co] ?: d.co
+                val co = mapOf("przyjeta" to "przyjął", "odrzucona" to "odłożył", "zratyfikowana" to "zratyfikował", "doskonalona" to "odesłał do doskonalenia", "na_noc" to "dał na Nocną Zmianę")[d.co] ?: d.co
                 Text("• ${d.kto} $co · ${kiedy(d.kiedy)}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
@@ -438,6 +427,54 @@ fun WyborWarsztatu(w: Warsztat, pracuje: Boolean, zPetla: Boolean, onZmiana: (Wa
             "Małe lokalne modele potrzebują kilku przejść — każda runda i pętla to kolejne minuty pracy karty graficznej.",
             fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+private fun rund(n: Int) = if (n == 1) "runda" else if (n in 2..4) "rundy" else "rund"
+
+/**
+ * Warsztat karty: kolejne rundy doskonalenia TERAZ (▶, na żywo — karta pokazuje postęp) albo na Nocną Zmianę
+ * ×N (Katedra zrobi je, gdy Suweren śpi). Do akceptacji, po ratyfikacji (wtedy znów do akceptacji) i w trakcie
+ * pracy (tylko noc — teraz stado i tak pracuje).
+ */
+@Composable
+fun WarsztatKarty(
+    k: KartaStolu,
+    w: Warsztat,
+    pracuje: Boolean,
+    onDecyzja: (AkcjaStolu, List<String>, Warsztat?) -> Unit,
+    onZmiana: (Warsztat) -> Unit,
+) {
+    Marmur(akcent = kolor("opracowuje")) {
+        Text(if (k.etap == "do_akceptacji") "Jeszcze nie to? Doskonal" else "Rundy doskonalenia", fontWeight = FontWeight.SemiBold)
+        Text(
+            "Stado dołoży kolejne cegiełki na brakach Sędziego — każdy na swoim poprzednim wkładzie. Ocena ${Warsztat.CEL_OCENY}/10 kończy wcześniej." +
+                if (k.etap == "zratyfikowane") " Po rundach karta znów czeka na Twoją ratyfikację." else "",
+            fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        k.nocna?.let { n ->
+            n.zadania.forEach { z ->
+                Text(
+                    "🌙 Na noc: ${z.rundy} ${rund(z.rundy)} × ${z.powtorzenia} · zrobione ${z.wykonane}/${z.powtorzenia}" +
+                        when (z.stan) { "trwa" -> " · trwa teraz"; "blad" -> " · padło: ${z.blad ?: "błąd"}"; else -> "" },
+                    fontSize = 12.sp, color = if (z.stan == "blad") CZERWONY else kolor("opracowuje"),
+                )
+            }
+            if (!n.wlaczona) Text(
+                "Nocna Zmiana jest wyłączona w Katedrze — zadania na noc czekają, aż ją włączysz przy komputerze.",
+                fontSize = 12.sp, color = kolor("do_akceptacji"),
+            )
+        }
+        WyborWarsztatu(w, pracuje, zPetla = true, onZmiana = onZmiana)
+        if (k.moznaDoskonalic) {
+            Button(onClick = { onDecyzja(AkcjaStolu.DOSKONAL, emptyList(), w) }, enabled = !pracuje, modifier = Modifier.fillMaxWidth()) {
+                Text(if (pracuje) "Wysyłam do Katedry…" else "▶ Teraz: ${w.rundy} ${rund(w.rundy)}")
+            }
+        }
+        Licznik("Powtórzeń na noc", w.powtorzenia, 1..Warsztat.MAX_POWTORZEN, !pracuje) { onZmiana(w.copy(powtorzenia = it)) }
+        OutlinedButton(onClick = { onDecyzja(AkcjaStolu.NOCNA, emptyList(), w) }, enabled = !pracuje, modifier = Modifier.fillMaxWidth()) {
+            Text(if (pracuje) "Wysyłam do Katedry…" else "🌙 Na Nocną Zmianę: ${w.powtorzenia} × ${w.rundy} ${rund(w.rundy)}")
+        }
     }
 }
 

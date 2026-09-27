@@ -47,6 +47,9 @@ Karty propozycji z mostu (`/api/stol`, services/Stol.js w Katedrze), wygląd z A
 - **Rundy doskonalenia i pętla kreatywna** (przy przyjęciu i w „Doskonal” zamiast ratyfikacji): stado
   robi 1–5 rund; po każdej Sędzia ocenia Biblię względem wizji (0–10) i wypisuje braki, na których
   następna runda buduje; ≥ 9/10 kończy wcześniej. Pętla (0–3) — każdy punkt planu szlifowany krytycznie.
+- **Warsztat karty** (do akceptacji, po ratyfikacji, w pracy): „▶ Teraz: N rund” — stado doskonali od razu,
+  karta pokazuje postęp na żywo; „🌙 Na Nocną Zmianę: P × N rund” — Katedra zrobi to, gdy śpisz. Karta
+  pokazuje, co czeka na noc i czy Nocna Zmiana jest włączona (włącza się ją przy Katedrze).
 - **Głos Stołu** 🔊: syntezator mowy telefonu (lokalnie) mówi, gdy projekt jest gotowy do ratyfikacji
   (z rundami i oceną), gdy utknie i gdy moduły oddadzą zlecenia. Tylko gdy StoL jest otwarty; przełącznik w nagłówku.
 - **Izba Akceptacji**: tylko to, co czeka na Suwerena; liczba na plakietce.

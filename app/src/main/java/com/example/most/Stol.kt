@@ -12,6 +12,12 @@ data class Decyzja(val co: String, val kto: String, val kiedy: String?)
 
 data class ZlecenieKarty(val modul: String, val opis: String, val stan: String)
 
+/** Rundy tego projektu zaplanowane na Nocną Zmianę (Katedra robi je, gdy Suweren śpi). */
+data class NocneZadanie(val id: String, val stan: String, val wykonane: Int, val powtorzenia: Int, val rundy: Int, val blad: String?)
+
+/** Nocna Zmiana z punktu widzenia karty: czy w ogóle jest włączona i co czeka dla tego projektu. */
+data class NocnaKarty(val wlaczona: Boolean, val zadania: List<NocneZadanie>)
+
 /** Ocena Sędziego po rundzie: zgodność Biblii z wizją 0–10 (null = model nie trzymał formatu). */
 data class OcenaRundy(val runda: Int, val ocena: Int?)
 
@@ -47,12 +53,16 @@ data class KartaStolu(
     val etap: String,
     val decyzje: List<Decyzja>,
     val projekt: ProjektKarty?,
+    /** null = stary most albo karta bez projektu. */
+    val nocna: NocnaKarty? = null,
 ) {
     val moznaPrzyjac: Boolean get() = etap == "na_stole" || etap == "utknela"
     val moznaOdrzucic: Boolean get() = etap == "na_stole" || etap == "utknela" || etap == "do_akceptacji"
     val moznaRatyfikowac: Boolean get() = etap == "do_akceptacji"
-    /** Zamiast ratyfikacji: kolejne rundy doskonalenia na brakach Sędziego. */
-    val moznaDoskonalic: Boolean get() = etap == "do_akceptacji"
+    /** Kolejne rundy doskonalenia na brakach Sędziego — przed ratyfikacją albo po niej (wtedy znów do akceptacji). */
+    val moznaDoskonalic: Boolean get() = etap == "do_akceptacji" || etap == "zratyfikowane"
+    /** Rundy na Nocną Zmianę: projekt już był w pracy stada. */
+    val moznaNaNoc: Boolean get() = projekt != null && (moznaDoskonalic || etap == "opracowuje")
     /** Czeka na decyzję Suwerena (Izba Akceptacji). */
     val czekaNaSuwerena: Boolean get() = moznaPrzyjac || moznaRatyfikowac
 
@@ -90,6 +100,20 @@ data class KartaStolu(
                         braki = it.lista("braki").mapNotNull { b -> b as? String },
                     )
                 },
+                nocna = m.obiekt("nocna")?.let { n ->
+                    NocnaKarty(
+                        wlaczona = n.logika("wlaczona") ?: false,
+                        zadania = n.lista("zadania").mapNotNull { z ->
+                            (z as? Map<String, Any?>)?.let {
+                                NocneZadanie(
+                                    id = it.napis("id").orEmpty(), stan = it.napis("stan") ?: "czeka",
+                                    wykonane = it.liczba("wykonane")?.toInt() ?: 0, powtorzenia = it.liczba("powtorzenia")?.toInt() ?: 1,
+                                    rundy = it.liczba("rundy")?.toInt() ?: 1, blad = it.napis("blad"),
+                                )
+                            }
+                        },
+                    )
+                },
             )
         }
 
@@ -112,19 +136,21 @@ data class KartaStolu(
 }
 
 /** Decyzja Suwerena nad kartą — trasa `POST /api/stol/:id/<akcja>`. */
-enum class AkcjaStolu(val sciezka: String) { PRZYJMIJ("przyjmij"), ODRZUC("odrzuc"), RATYFIKUJ("ratyfikuj"), DOSKONAL("doskonal") }
+enum class AkcjaStolu(val sciezka: String) { PRZYJMIJ("przyjmij"), ODRZUC("odrzuc"), RATYFIKUJ("ratyfikuj"), DOSKONAL("doskonal"), NOCNA("nocna") }
 
 /**
  * Jak stado ma pracować nad kartą: rundy doskonalenia (1–5, Sędzia ocenia po każdej, ≥ 9/10 kończy
  * wcześniej) i pętla kreatywna na każdym punkcie planu (0–3). Te same granice co w moście.
  */
-data class Warsztat(val rundy: Int = 1, val petla: Int = 0) {
-    fun wGranicach() = Warsztat(rundy.coerceIn(1, MAX_RUND), petla.coerceIn(0, MAX_PETLI))
+data class Warsztat(val rundy: Int = 1, val petla: Int = 0, val powtorzenia: Int = 1) {
+    fun wGranicach() = Warsztat(rundy.coerceIn(1, MAX_RUND), petla.coerceIn(0, MAX_PETLI), powtorzenia.coerceIn(1, MAX_POWTORZEN))
 
     companion object {
         const val MAX_RUND = 5
         const val MAX_PETLI = 3
         const val CEL_OCENY = 9
+        /** Nocna Zmiana: ile razy powtórzyć rundy (services/NocnaZmiana.js → MAX_POWTORZEN). */
+        const val MAX_POWTORZEN = 20
     }
 }
 
