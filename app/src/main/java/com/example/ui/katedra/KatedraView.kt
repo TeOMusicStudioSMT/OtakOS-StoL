@@ -88,7 +88,9 @@ fun KatedraView(viewModel: KatedraViewModel, modifier: Modifier = Modifier) {
         BackHandler { swiat = null }
         Column(modifier.fillMaxSize()) {
             TextButton(onClick = { swiat = null }, modifier = Modifier.padding(horizontal = 8.dp)) { Text("← Lista stada") }
-            SwiatKlockow(adres, Modifier.fillMaxSize())
+            // weight, nie fillMaxSize: pod przyciskiem zostaje tyle, ile jest — inaczej WebView wystaje
+            // pod dolny pasek, a dół szuflady katalogu (i pasek filmu) ląduje poza ekranem.
+            SwiatKlockow(adres, Modifier.fillMaxWidth().weight(1f))
         }
         return
     }
@@ -192,6 +194,11 @@ private fun SwiatKlockow(adres: String, modifier: Modifier = Modifier) {
         modifier = modifier,
         factory = { ctx ->
             WebView(ctx).apply {
+                // Suweren (2026-09-27): panel TeOgochi w świecie „zamrożony" — nie przewijał się.
+                // Ta sama strona w Chromium z dotykiem przewija szufladę poprawnie, więc podejrzany jest
+                // gospodarz: Compose opakowuje widok w AndroidViewHolder, który przejmuje zagnieżdżone
+                // przewijanie. Strona świata sama przewija swoje panele — Compose nie ma tu nic do roboty.
+                isNestedScrollingEnabled = false
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
                 // Strona pochodzi z mostu Suwerena (adres z parowania); Powitanie Dnia gra na starcie z muzyką.
