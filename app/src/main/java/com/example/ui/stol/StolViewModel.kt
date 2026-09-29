@@ -10,7 +10,11 @@ import com.example.most.Gatunek
 import com.example.most.KartaStolu
 import com.example.most.MostKlient
 import com.example.most.NowaKarta
+import com.example.most.PamiecKatedry
+import com.example.most.Rozmowca
+import com.example.most.RozmowaUi
 import com.example.most.Warsztat
+import com.example.most.Wypowiedz
 import com.example.most.ZdarzenieSzyny
 import com.example.most.zapowiedziStolu
 import com.example.ui.katedra.PolaczenieStore
@@ -26,7 +30,8 @@ import java.util.Locale
 
 /**
  * Stół ratyfikacji na telefonie — prawdziwe karty z mostu (`/api/stol`), nie atrapa z AI Studio.
- * Zakładki: 0 Stół · 1 Izba Akceptacji · 2 Historia (szyna Katedry) · 3 Agenci (TeOgochi) · 4 Katedra.
+ * Zakładki: 0 Stół · 1 Izba Akceptacji · 2 Historia (szyna Katedry) · 3 Agenci (TeOgochi + rozmowa przez Delegata
+ * + pamięć Katedry) · 4 Katedra.
  * Połączenie (adres, klucz, token) dzieli z zakładką Katedra — parowanie robi się tam.
  */
 data class StolUiState(
@@ -48,7 +53,16 @@ data class StolUiState(
     val komunikat: String? = null,
     /** Zapowiedzi głosowe Stołu (gotowy projekt, utknięty, moduły oddały zlecenia). */
     val glos: Boolean = true,
+    /** Delegat: z kim można rozmawiać (`/api/delegat/wszyscy`) i otwarta rozmowa. */
+    val rozmowcy: List<Rozmowca> = emptyList(),
+    val rozmowa: RozmowaUi? = null,
+    /** Pamięć Katedry — widok w zakładce Agenci. */
+    val pamiec: PamiecKatedry? = null,
+    val pamiecOtwarta: Boolean = false,
+    val pamiecWczytuje: Boolean = false,
+    val pamiecBlad: String? = null,
 )
+
 
 class StolViewModel(application: Application) : AndroidViewModel(application) {
     private val store = PolaczenieStore(application)
@@ -99,6 +113,8 @@ class StolViewModel(application: Application) : AndroidViewModel(application) {
             val karty = async { k.stol(p.token) }
             val zdarzenia = async { k.zdarzenia(p.token) }
             val stan = async { k.stan(p.token) }
+            // Rozmówcy Delegata zmieniają się rzadko (nowa karta roli w Katedrze) — dociągamy, dopóki lista pusta.
+            val rozmowcy = if (_ui.value.rozmowcy.isEmpty()) async { k.rozmowcy(p.token) } else null
             val wk = karty.await()
             val wz = zdarzenia.await()
             val ws = stan.await()
@@ -115,6 +131,7 @@ class StolViewModel(application: Application) : AndroidViewModel(application) {
                     karty = (wk as? MostKlient.Wynik.Ok)?.wartosc ?: u.karty,
                     zdarzenia = (wz as? MostKlient.Wynik.Ok)?.wartosc ?: u.zdarzenia,
                     gatunki = (ws as? MostKlient.Wynik.Ok)?.wartosc?.gatunki ?: u.gatunki,
+                    rozmowcy = (rozmowcy?.await() as? MostKlient.Wynik.Ok)?.wartosc ?: u.rozmowcy,
                     blad = (wk as? MostKlient.Wynik.Blad)?.let(::opisBledu),
                 )
             }
@@ -177,6 +194,65 @@ class StolViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 is MostKlient.Wynik.Blad -> _ui.update { it.copy(pracuje = false, bladAkcji = opisBledu(w)) }
             }
+        }
+    }
+
+    // ── Delegat: rozmowa z dowolnym TeOgochi ──
+
+    fun otworzRozmowe(r: Rozmowca) = _ui.update { u -> if (u.rozmowa?.z?.id == r.id) u else u.copy(rozmowa = RozmowaUi(r)) }
+    fun zamknijRozmowe() = _ui.update { it.copy(rozmowa = null) }
+
+    /** Wyślij wypowiedź; odpowiedź przychodzi po całej pętli narzędzi (bywa minuta i dłużej). Głos czyta ją, gdy włączony. */
+    fun wyslij(tekst: String) {
+        val p = store.wczytaj() ?: return
+        val r = _ui.value.rozmowa ?: return
+        if (tekst.isBlank() || r.mysli) return
+        _ui.update { it.copy(rozmowa = r.copy(wypowiedzi = r.wypowiedzi + Wypowiedz("suweren", tekst.trim()), mysli = true, blad = null)) }
+        viewModelScope.launch {
+            val w = withContext(Dispatchers.IO) { MostKlient(p.adres, p.klucz).rozmawiaj(p.token, r.z.id, tekst, r.rozmowaId) }
+            _ui.update { u ->
+                val teraz = u.rozmowa?.takeIf { it.z.id == r.z.id } ?: return@update u
+                when (w) {
+                    is MostKlient.Wynik.Ok -> u.copy(rozmowa = teraz.copy(wypowiedzi = teraz.wypowiedzi + Wypowiedz("delegat", w.wartosc.odpowiedz), rozmowaId = w.wartosc.rozmowaId, mysli = false))
+                    is MostKlient.Wynik.Blad -> u.copy(rozmowa = teraz.copy(mysli = false, blad = opisBledu(w)))
+                }
+            }
+            (w as? MostKlient.Wynik.Ok)?.let { powiedz(it.wartosc.odpowiedz) }
+        }
+    }
+
+    // ── Pamięć Katedry ──
+
+    fun pokazPamiec(czy: Boolean) {
+        _ui.update { it.copy(pamiecOtwarta = czy) }
+        if (czy) wczytajPamiec()
+    }
+
+    fun wczytajPamiec() {
+        val p = store.wczytaj() ?: return
+        _ui.update { it.copy(pamiecWczytuje = true, pamiecBlad = null) }
+        viewModelScope.launch {
+            val w = withContext(Dispatchers.IO) { MostKlient(p.adres, p.klucz).pamiec(p.token) }
+            _ui.update { u ->
+                when (w) {
+                    is MostKlient.Wynik.Ok -> u.copy(pamiec = w.wartosc, pamiecWczytuje = false)
+                    is MostKlient.Wynik.Blad -> u.copy(pamiecWczytuje = false, pamiecBlad = opisBledu(w))
+                }
+            }
+        }
+    }
+
+    /** Zamknij proces po PID (potwierdzenie robi ekran). Wynik mostu słowami w pasku, potem świeża lista. */
+    fun zwolnij(pid: Int) {
+        val p = store.wczytaj() ?: return
+        _ui.update { it.copy(pamiecWczytuje = true, pamiecBlad = null) }
+        viewModelScope.launch {
+            val w = withContext(Dispatchers.IO) { MostKlient(p.adres, p.klucz).zwolnij(p.token, listOf(pid)) }
+            when (w) {
+                is MostKlient.Wynik.Ok -> _ui.update { it.copy(komunikat = w.wartosc.zdanie) }
+                is MostKlient.Wynik.Blad -> _ui.update { it.copy(pamiecBlad = opisBledu(w)) }
+            }
+            wczytajPamiec()
         }
     }
 
