@@ -49,6 +49,7 @@ import com.example.most.AkcjaStolu
 import com.example.most.Gatunek
 import com.example.most.KartaStolu
 import com.example.most.NowaKarta
+import com.example.most.Rozmowca
 import com.example.most.Warsztat
 import com.example.most.ZdarzenieSzyny
 import com.example.most.czasIso
@@ -56,7 +57,8 @@ import com.example.most.ileTemu
 
 /*
  * 🪑 Ekrany Stołu ratyfikacji: stół z kartami, Izba Akceptacji, Historia (szyna Katedry),
- * Agenci (stado TeOgochi), karta z decyzjami i formularz nowej propozycji.
+ * Agenci (stado TeOgochi + rozmowa przez Delegata i pamięć Katedry — DelegatEkrany.kt), karta z decyzjami
+ * i formularz nowej propozycji.
  * Wygląd z AI Studio (karty na marmurze), dane z mostu. Sam Compose + rdzeń com.example.most —
  * bez importów z Androida, więc kompiluje się i daje obejrzeć także poza telefonem.
  */
@@ -89,7 +91,7 @@ private fun ZnaczekEtapu(etap: String) {
 }
 
 @Composable
-private fun Marmur(modifier: Modifier = Modifier, akcent: Color? = null, onClick: (() -> Unit)? = null, tresc: @Composable () -> Unit) {
+internal fun Marmur(modifier: Modifier = Modifier, akcent: Color? = null, onClick: (() -> Unit)? = null, tresc: @Composable () -> Unit) {
     Card(
         modifier = modifier.fillMaxWidth().let { if (onClick != null) it.clickable(onClick = onClick) else it }
             .let { if (akcent != null) it.border(1.dp, akcent.copy(alpha = 0.35f), RoundedCornerShape(18.dp)) else it },
@@ -131,7 +133,7 @@ fun KartaNaStole(k: KartaStolu, onOtworz: () -> Unit) {
 }
 
 @Composable
-private fun Pusto(tytul: String, opis: String) {
+internal fun Pusto(tytul: String, opis: String) {
     Column(Modifier.fillMaxWidth().padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(tytul, fontWeight = FontWeight.Bold, fontSize = 17.sp)
         Text(opis, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -240,16 +242,25 @@ fun HistoriaKatedry(zdarzenia: List<ZdarzenieSzyny>, wczytano: Boolean, blad: St
 
 /** Zakładka 3 — Agenci: stado TeOgochi z Katedry (wykluci pierwsi), bez wymyślonych statusów. */
 @Composable
-fun AgenciStada(gatunki: List<Gatunek>, wczytano: Boolean) {
+fun AgenciStada(
+    gatunki: List<Gatunek>,
+    wczytano: Boolean,
+    rozmowcy: List<Rozmowca> = emptyList(),
+    onRozmowa: (Rozmowca) -> Unit = {},
+    onPamiec: () -> Unit = {},
+) {
     val lista = gatunki.sortedWith(compareByDescending<Gatunek> { it.wyklute }.thenByDescending { it.xp })
     LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item {
             Text("Agenci stada", fontWeight = FontWeight.Bold, fontSize = 20.sp)
-            Text("To oni opracowują karty ze stołu — każdy na swoim modelu, w swojej dziedzinie.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("To oni opracowują karty ze stołu — każdy na swoim modelu, w swojej dziedzinie. Stuknij, by porozmawiać.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+        item { DelegatPasek(rozmowcy, onRozmowa, onPamiec) }
         if (lista.isEmpty() && wczytano) item { Pusto("Stado milczy", "Katedra nie opublikowała jeszcze migawki stada.") }
         items(lista, key = { it.id }) { g ->
-            Marmur(akcent = runCatching { Color(kolorHex(g.kolor)) }.getOrNull()) {
+            // Rozmówca Delegata pasuje po id gatunku albo imieniu — wtedy karta agenta otwiera rozmowę.
+            val rozmowca = rozmowcy.find { it.id.equals(g.id, true) || it.imie.equals(g.imie, true) }
+            Marmur(akcent = runCatching { Color(kolorHex(g.kolor)) }.getOrNull(), onClick = rozmowca?.let { r -> { onRozmowa(r) } }) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(g.forma, fontSize = 26.sp)
                     Spacer(Modifier.width(10.dp))
@@ -257,7 +268,7 @@ fun AgenciStada(gatunki: List<Gatunek>, wczytano: Boolean) {
                         Text(g.imie, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                         Text(g.dziedzina, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    Text(if (g.wyklute) "${g.xp} XP" else "🥚 jajko", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Text((if (rozmowca != null) "💬 " else "") + (if (g.wyklute) "${g.xp} XP" else "🥚 jajko"), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 }
                 g.robi?.let { Text("${it}${g.robiOd?.let { t -> " · " + ileTemu(((System.currentTimeMillis() - t) / 1000).coerceAtLeast(0)) } ?: ""}", fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis) }
             }

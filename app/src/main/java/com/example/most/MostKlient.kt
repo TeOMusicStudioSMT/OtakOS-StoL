@@ -9,8 +9,9 @@ import java.net.URL
  *  · paruj    — kod z Katedry → token urządzenia (`POST /api/stado/paruj`),
  *  · stan     — co robi stado, jednorazowo (`GET /api/stado/stan`, token w `X-Stado-Token`),
  *  · strumien — to samo na żywo (SSE `GET /api/stado/strumien`): stan + każde zdarzenie szyny,
- *  · projekty / zalozProjekt — wspólne projekty stada (`GET /api/stado/projekty`,
- *    `POST /api/stado/projekt/nowy` — jedyna zmiana, którą most przyjmuje od telefonu).
+ *  · projekty / zalozProjekt — wspólne projekty stada (`GET /api/stado/projekty`, `POST /api/stado/projekt/nowy`),
+ *  · rozmowcy / rozmawiaj — Delegat: rozmowa z dowolnym TeOgochi (`/api/delegat/…`),
+ *  · pamiec / zwolnij — RAM Katedry i zamykanie procesów po PID (`/api/system/memory`, `/api/system/free`).
  *
  * Każde żądanie niesie klucz Straży Mostu (`x-teo-klucz`) — telefon łączy się przez
  * Kwantowy Tunel, a most bez klucza odrzuca wszystko spoza maszyny Suwerena.
@@ -101,6 +102,42 @@ class MostKlient(
                 .sortedByDescending { it.kiedy.orEmpty() }
         }
 
+    // ── Delegat: rozmowa z dowolnym TeOgochi i pamięć Katedry (most/Delegat.kt) ──
+
+    /** Z kim można rozmawiać (`GET /api/delegat/wszyscy`): pełne profile i gatunki z kartą roli. */
+    @Suppress("UNCHECKED_CAST")
+    fun rozmowcy(token: String): Wynik<List<Rozmowca>> =
+        zapytaj("GET", "/api/delegat/wszyscy", null, mapOf("X-Stado-Token" to token)) { m ->
+            m.lista("delegaci").mapNotNull { (it as? Map<String, Any?>)?.let(Rozmowca::zJson) }
+        }
+
+    /**
+     * Jedna tura rozmowy (`POST /api/delegat/rozmowa`, bez strumienia). Model lokalny z pętlą narzędzi potrafi
+     * myśleć minutami (zwłaszcza gdy ComfyUI liczy wideo) — dlatego osobny, długi limit odczytu.
+     */
+    fun rozmawiaj(token: String, delegat: String, tekst: String, rozmowaId: String?, limitOdpowiedziMs: Int = 300_000): Wynik<OdpowiedzDelegata> {
+        if (tekst.isBlank()) return Wynik.Blad("Pusta wypowiedź.")
+        val cialo = buildString {
+            append("{\"delegat\":").append(jsonNapis(delegat)).append(",\"tekst\":").append(jsonNapis(tekst.trim()))
+            if (!rozmowaId.isNullOrBlank()) append(",\"rozmowaId\":").append(jsonNapis(rozmowaId))
+            append('}')
+        }
+        return zapytaj("POST", "/api/delegat/rozmowa", cialo, mapOf("X-Stado-Token" to token), limitOdpowiedziMs) { m ->
+            OdpowiedzDelegata.zJson(m) ?: throw IOException("Most nie oddał odpowiedzi delegata.")
+        }
+    }
+
+    /** RAM Katedry i procesy, które go zjadają (`GET /api/system/memory`). */
+    fun pamiec(token: String): Wynik<PamiecKatedry> =
+        zapytaj("GET", "/api/system/memory", null, mapOf("X-Stado-Token" to token), 20_000) { PamiecKatedry.zJson(it) }
+
+    /** Zamknij procesy po PID (`POST /api/system/free`) — most wpuszcza tylko sparowany telefon i niechronione. */
+    fun zwolnij(token: String, pidy: List<Int>): Wynik<WynikZwolnienia> {
+        if (pidy.isEmpty()) return Wynik.Blad("Nie wskazano procesu.")
+        val cialo = "{\"pidy\":[${pidy.distinct().joinToString(",")}]}"
+        return zapytaj("POST", "/api/system/free", cialo, mapOf("X-Stado-Token" to token), 20_000) { WynikZwolnienia.zJson(it) }
+    }
+
     private fun sciezkaId(id: String) = java.net.URLEncoder.encode(id, "UTF-8").replace("+", "%20")
 
     /**
@@ -158,13 +195,14 @@ class MostKlient(
 
     private fun <T> zapytaj(
         metoda: String, sciezka: String, cialo: String?, naglowki: Map<String, String>,
+        limitOdczytuMs: Int = limitMs,
         czytaj: (Map<String, Any?>) -> T,
     ): Wynik<T> {
         val c = (URL(adres + sciezka).openConnection() as HttpURLConnection)
         return try {
             c.requestMethod = metoda
             c.connectTimeout = limitMs
-            c.readTimeout = limitMs
+            c.readTimeout = limitOdczytuMs
             c.setRequestProperty("Accept", "application/json")
             c.setRequestProperty("x-teo-klucz", klucz)
             naglowki.forEach { (k, v) -> c.setRequestProperty(k, v) }
@@ -198,7 +236,7 @@ class MostKlient(
                 Wynik.Blad("Most nie przyjął klucza Straży. Klucz mógł zostać przekuty — sparuj telefon od nowa.", rozparowany = true)
             kod == 401 -> Wynik.Blad(msg ?: "Telefon nie jest sparowany z tą Katedrą.", rozparowany = true)
             json?.napis("blad") == "TYLKO_LOKALNIE" ->
-                Wynik.Blad("Ten most nie przyjmuje jeszcze projektów z telefonu — zaktualizuj Katedrę.")
+                Wynik.Blad("Ten most nie przyjmuje tego z telefonu — zaktualizuj Katedrę albo zrób to przy maszynie.")
             kod == 403 -> Wynik.Blad(msg ?: "Most odmówił (403).")
             kod == 404 && tekst.contains("Cannot") -> Wynik.Blad("Ten most nie zna trasy StoL-a — zaktualizuj Katedrę.")
             else -> Wynik.Blad(msg ?: "Most odpowiedział HTTP $kod.")

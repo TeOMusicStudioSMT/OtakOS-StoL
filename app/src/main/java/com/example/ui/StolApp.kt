@@ -71,13 +71,15 @@ import com.example.ui.stol.HistoriaKatedry
 import com.example.ui.stol.IzbaAkceptacji
 import com.example.ui.stol.KartaOtwarta
 import com.example.ui.stol.NieSparowany
+import com.example.ui.stol.PamiecKatedryEkran
+import com.example.ui.stol.RozmowaDelegata
 import com.example.ui.stol.StolEkran
 import com.example.ui.stol.StolViewModel
 import kotlinx.coroutines.delay
 
 /**
  * StoL: Stół ratyfikacji Katedry na marmurze z AI Studio — ale na prawdziwych danych z mostu.
- * 0 Stół · 1 Izba Akceptacji · 2 Historia · 3 Agenci · 4 Katedra (parowanie, stado, świat klocków).
+ * 0 Stół · 1 Izba Akceptacji · 2 Historia · 3 Agenci (rozmowa przez Delegata, pamięć Katedry) · 4 Katedra (parowanie, stado, świat klocków).
  */
 @Composable
 fun StolApp(
@@ -109,6 +111,8 @@ fun StolApp(
     }
     BackHandler(enabled = ui.otwarta != null && !ui.pracuje) { viewModel.zamknij() }
     BackHandler(enabled = ui.formularz && !ui.pracuje) { viewModel.pokazFormularz(false) }
+    BackHandler(enabled = ui.zakladka == 3 && ui.rozmowa != null) { viewModel.zamknijRozmowe() }
+    BackHandler(enabled = ui.zakladka == 3 && ui.rozmowa == null && ui.pamiecOtwarta) { viewModel.pokazPamiec(false) }
 
     MarbleBackground(modifier = modifier, lightingMode = oswietlenie) {
         Scaffold(
@@ -163,7 +167,26 @@ fun StolApp(
                     ui.zakladka == 0 -> StolEkran(ui.karty, ui.wczytano, ui.blad) { viewModel.otworz(it.id) }
                     ui.zakladka == 1 -> IzbaAkceptacji(ui.karty, ui.wczytano, ui.blad) { viewModel.otworz(it.id) }
                     ui.zakladka == 2 -> HistoriaKatedry(ui.zdarzenia, ui.wczytano, ui.blad)
-                    ui.zakladka == 3 -> AgenciStada(ui.gatunki, ui.wczytano)
+                    ui.zakladka == 3 && ui.rozmowa != null -> RozmowaDelegata(
+                        rozmowa = ui.rozmowa!!,
+                        onWyslij = { viewModel.wyslij(it) },
+                        onZamknij = { viewModel.zamknijRozmowe() }
+                    )
+                    ui.zakladka == 3 && ui.pamiecOtwarta -> PamiecKatedryEkran(
+                        pamiec = ui.pamiec,
+                        wczytuje = ui.pamiecWczytuje,
+                        blad = ui.pamiecBlad,
+                        onOdswiez = { viewModel.wczytajPamiec() },
+                        onZamknijProces = { viewModel.zwolnij(it) },
+                        onWroc = { viewModel.pokazPamiec(false) }
+                    )
+                    ui.zakladka == 3 -> AgenciStada(
+                        gatunki = ui.gatunki,
+                        wczytano = ui.wczytano,
+                        rozmowcy = ui.rozmowcy,
+                        onRozmowa = { viewModel.otworzRozmowe(it) },
+                        onPamiec = { viewModel.pokazPamiec(true) }
+                    )
                 }
             }
         }

@@ -270,3 +270,44 @@ class NocnaStoluTest {
         assertEquals(1, Warsztat(powtorzenia = 0).wGranicach().powtorzenia)
     }
 }
+
+/** Delegat w StoL-u: rozmówcy, odpowiedź, pamięć i wynik zamykania — tak, jak oddaje je most. */
+class DelegatTest {
+    @Suppress("UNCHECKED_CAST")
+    private fun m(json: String) = Json.parsuj(json) as Map<String, Any?>
+
+    @Test fun rozmowcyZMostu() {
+        val lista = m("""{"success":true,"delegaci":[{"id":"kodeks","imie":"Kodeks","emoji":"🐙","dziedzina":"Kod","pelny":true,"narzedzia":["katedra.stan","projekty.stan"]},{"id":"","imie":"bez id"},{"id":"bilans","imie":"Bilans","pelny":false}]}""")
+            .lista("delegaci").mapNotNull { (it as? Map<String, Any?>)?.let(Rozmowca::zJson) }
+        assertEquals(listOf("kodeks", "bilans"), lista.map { it.id })
+        assertTrue(lista[0].pelny && "projekty.stan" in lista[0].narzedzia)
+        assertEquals("🥚", lista[1].emoji)
+    }
+
+    @Test fun odpowiedzDelegata() {
+        val o = OdpowiedzDelegata.zJson(m("""{"success":true,"rozmowaId":"tel-abc-12ef","delegat":"kodeks","odpowiedz":"Projekt ma Biblię.","model":"qwen3.5:9b"}"""))
+        assertEquals(OdpowiedzDelegata("tel-abc-12ef", "Projekt ma Biblię.", "qwen3.5:9b"), o)
+        assertNull(OdpowiedzDelegata.zJson(m("""{"success":true}""")))
+    }
+
+    @Test fun pamiecZPidamiIOpisem() {
+        val p = PamiecKatedry.zJson(m("""{"success":true,"totalGB":42.6,"freeGB":15,"procesy":[{"pid":4100,"name":"python.exe","mb":2425,"opis":"ComfyUI (obrazy, wideo, muzyka)","skrypt":"main.py","chroniony":false,"uwaga":"Zamknięcie przerwie render w toku."},{"pid":3000,"name":"Memory Compression","mb":1799,"opis":"skompresowana pamięć Windows","chroniony":true},{"name":"bez pid"}]}"""))
+        assertEquals(15.0, p.wolneGB, 0.0)
+        assertEquals(listOf(4100, 3000), p.procesy.map { it.pid })
+        assertEquals("main.py", p.procesy[0].skrypt)
+        assertTrue(p.procesy[1].chroniony)
+        assertNull(p.blad)
+    }
+
+    @Test fun wynikZwolnieniaJednymZdaniem() {
+        val w = WynikZwolnienia.zJson(m("""{"success":true,"zamkniete":[{"pid":5200,"name":"python.exe","opis":"pip"}],"odmowy":[{"pid":3000,"powod":"Memory Compression: chroniony"}]}"""))
+        assertEquals("Zamknięto: python.exe #5200. #3000: Memory Compression: chroniony", w.zdanie)
+        assertEquals("Nic nie zamknięto.", WynikZwolnienia(emptyList(), emptyList()).zdanie)
+    }
+
+    @Test fun pustaWypowiedzINicDoZamknieciaBezPytaniaMostu() {
+        val k = MostKlient("http://127.0.0.1:9", "k")   // port 9: nikt nie słucha — gdyby klient pytał, byłby inny błąd
+        assertEquals(MostKlient.Wynik.Blad("Pusta wypowiedź."), k.rozmawiaj("t", "kodeks", "  ", null))
+        assertEquals(MostKlient.Wynik.Blad("Nie wskazano procesu."), k.zwolnij("t", emptyList()))
+    }
+}
