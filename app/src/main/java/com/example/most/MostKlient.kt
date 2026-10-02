@@ -12,6 +12,7 @@ import java.net.URL
  *  · projekty / zalozProjekt — wspólne projekty stada (`GET /api/stado/projekty`, `POST /api/stado/projekt/nowy`),
  *  · rozmowcy / rozmawiaj — Delegat: rozmowa z dowolnym TeOgochi (`/api/delegat/…`),
  *  · pamiec / zwolnij — RAM Katedry i zamykanie procesów po PID (`/api/system/memory`, `/api/system/free`).
+ *  · tostKontakty / tostRozmowa / tostWyslij — TOST między Katedrami (`/api/tost/siec/…`).
  *
  * Każde żądanie niesie klucz Straży Mostu (`x-teo-klucz`) — telefon łączy się przez
  * Kwantowy Tunel, a most bez klucza odrzuca wszystko spoza maszyny Suwerena.
@@ -136,6 +137,29 @@ class MostKlient(
         if (pidy.isEmpty()) return Wynik.Blad("Nie wskazano procesu.")
         val cialo = "{\"pidy\":[${pidy.distinct().joinToString(",")}]}"
         return zapytaj("POST", "/api/system/free", cialo, mapOf("X-Stado-Token" to token), 20_000) { WynikZwolnienia.zJson(it) }
+    }
+
+    // ── 💬 TOST między Katedrami (most/Tost.kt) — telefon pisze przez SWOJĄ Katedrę ──
+
+    /** Kontakty TOST-a: Katedry online z rejestru otakos.wtf i dotychczasowe rozmowy (`GET /api/tost/siec/kontakty`). */
+    fun tostKontakty(token: String): Wynik<KontaktyTost> =
+        zapytaj("GET", "/api/tost/siec/kontakty", null, mapOf("X-Stado-Token" to token)) { KontaktyTost.zJson(it) }
+
+    /** Wątek z jedną Katedrą (`GET /api/tost/siec/rozmowa/:nick`) — most oznacza przychodzące jako przeczytane. */
+    @Suppress("UNCHECKED_CAST")
+    fun tostRozmowa(token: String, nick: String): Wynik<List<WiadomoscTost>> =
+        zapytaj("GET", "/api/tost/siec/rozmowa/${sciezkaId(nick)}", null, mapOf("X-Stado-Token" to token)) { m ->
+            m.lista("wiadomosci").mapNotNull { (it as? Map<String, Any?>)?.let(WiadomoscTost::zJson) }
+        }
+
+    /** Wyślij (`POST /api/tost/siec/wyslij`). Gdy odbiorca offline — Ok ze stanem „czeka”, Katedra wyśle sama. */
+    fun tostWyslij(token: String, nick: String, tekst: String): Wynik<WiadomoscTost> {
+        if (tekst.isBlank()) return Wynik.Blad("Pusta wiadomość.")
+        if (tekst.length > 4000) return Wynik.Blad("Za długa wiadomość (max 4000 znaków).")
+        val cialo = "{\"do\":${jsonNapis(nick)},\"tekst\":${jsonNapis(tekst.trim())}}"
+        return zapytaj("POST", "/api/tost/siec/wyslij", cialo, mapOf("X-Stado-Token" to token), 30_000) { m ->
+            m.obiekt("wiadomosc")?.let(WiadomoscTost::zJson) ?: throw IOException("Most nie oddał wiadomości.")
+        }
     }
 
     private fun sciezkaId(id: String) = java.net.URLEncoder.encode(id, "UTF-8").replace("+", "%20")

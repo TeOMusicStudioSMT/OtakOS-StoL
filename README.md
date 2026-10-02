@@ -59,6 +59,17 @@ Karty propozycji z mostu (`/api/stol`, services/Stol.js w Katedrze), wygląd z A
 Odświeżanie co 10 s, tylko gdy zakładka stołu jest na ekranie. Dawne atrapy z AI Studio
 (agenci wpisani w kod, symulowana praca, baza Room) są usunięte.
 
+## 💬 TOST — rozmowy z innymi Katedrami (zakładka TOST)
+
+- **Kontakty**: Katedry online z rejestru otakos.wtf (tylko nicki, zatwierdzone przez Suwerena strony)
+  i te, z którymi już pisałeś; 🟢 online / ⚪ offline, liczba nowych, ⏳ czekające.
+- **Wątek**: telefon pisze przez **swoją** Katedrę (`/api/tost/siec/…`, tunel + klucz); Katedra szyfruje
+  kopertę end-to-end (X25519 + AES-GCM, podpis ed25519) i niesie ją do tunelu drugiej Katedry.
+  Gdy ta jest offline — wiadomość **czeka w Twojej Katedrze** i wychodzi sama (stan: ⏳ czeka / ✓ dostarczona / ✕ niedostarczona).
+- **🪪 Wizytówki Katedr**: przycisk otwiera `otakos.wtf/#katedry?moja=<nick>` — przeglądarka telefonu
+  zapamiętuje „moją Katedrę” i panel „Twoja” pokazuje ją z sieci (telefon nie widzi mostu 127.0.0.1).
+- Wymaga, by Katedra miała wizytówkę (nick), Kwantowy Tunel i włączony meldunek.
+
 ## Wizja (Suweren, 2026-09-24)
 
 Kiedyś był to stół z nazwami. Dziś: **sama pisząca się opowieść, wizualnie graficzna,

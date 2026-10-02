@@ -8,12 +8,14 @@ import androidx.lifecycle.viewModelScope
 import com.example.most.AkcjaStolu
 import com.example.most.Gatunek
 import com.example.most.KartaStolu
+import com.example.most.KontaktyTost
 import com.example.most.MostKlient
 import com.example.most.NowaKarta
 import com.example.most.PamiecKatedry
 import com.example.most.Rozmowca
 import com.example.most.RozmowaUi
 import com.example.most.Warsztat
+import com.example.most.WiadomoscTost
 import com.example.most.Wypowiedz
 import com.example.most.ZdarzenieSzyny
 import com.example.most.zapowiedziStolu
@@ -31,7 +33,7 @@ import java.util.Locale
 /**
  * Stół ratyfikacji na telefonie — prawdziwe karty z mostu (`/api/stol`), nie atrapa z AI Studio.
  * Zakładki: 0 Stół · 1 Izba Akceptacji · 2 Historia (szyna Katedry) · 3 Agenci (TeOgochi + rozmowa przez Delegata
- * + pamięć Katedry) · 4 Katedra.
+ * + pamięć Katedry) · 4 Katedra · 5 TOST (rozmowy z innymi Katedrami).
  * Połączenie (adres, klucz, token) dzieli z zakładką Katedra — parowanie robi się tam.
  */
 data class StolUiState(
@@ -61,6 +63,13 @@ data class StolUiState(
     val pamiecOtwarta: Boolean = false,
     val pamiecWczytuje: Boolean = false,
     val pamiecBlad: String? = null,
+    /** 💬 TOST między Katedrami: kontakty z rejestru otakos.wtf, otwarty wątek (nick) i jego wiadomości. */
+    val tost: KontaktyTost? = null,
+    val tostWczytuje: Boolean = false,
+    val tostBlad: String? = null,
+    val tostZ: String? = null,
+    val tostWatek: List<WiadomoscTost> = emptyList(),
+    val tostWysyla: Boolean = false,
 )
 
 
@@ -253,6 +262,52 @@ class StolViewModel(application: Application) : AndroidViewModel(application) {
                 is MostKlient.Wynik.Blad -> _ui.update { it.copy(pamiecBlad = opisBledu(w)) }
             }
             wczytajPamiec()
+        }
+    }
+
+    // ── 💬 TOST między Katedrami (telefon pisze przez swoją Katedrę; ona szyfruje i niesie kopertę) ──
+
+    /** Kontakty i — gdy wątek otwarty — jego wiadomości. Stary widok zostaje przy błędzie. */
+    fun odswiezTost() {
+        val p = store.wczytaj() ?: return
+        if (_ui.value.tostWczytuje) return
+        _ui.update { it.copy(tostWczytuje = true) }
+        viewModelScope.launch(Dispatchers.IO) {
+            val k = MostKlient(p.adres, p.klucz)
+            val z = _ui.value.tostZ
+            val kontakty = k.tostKontakty(p.token)
+            val watek = z?.let { k.tostRozmowa(p.token, it) }
+            _ui.update { u ->
+                u.copy(
+                    tostWczytuje = false,
+                    tost = (kontakty as? MostKlient.Wynik.Ok)?.wartosc ?: u.tost,
+                    tostBlad = (kontakty as? MostKlient.Wynik.Blad)?.let(::opisBledu),
+                    tostWatek = if (z != null && u.tostZ == z) (watek as? MostKlient.Wynik.Ok)?.wartosc ?: u.tostWatek else u.tostWatek,
+                )
+            }
+        }
+    }
+
+    fun otworzTost(nick: String) {
+        _ui.update { it.copy(tostZ = nick, tostWatek = emptyList(), tostBlad = null) }
+        odswiezTost()
+    }
+
+    fun zamknijTost() = _ui.update { it.copy(tostZ = null, tostWatek = emptyList()) }
+
+    /** Wyślij do otwartego wątku. Odbiorca offline → wiadomość „czeka” w Katedrze i wychodzi sama. */
+    fun wyslijTost(tekst: String) {
+        val p = store.wczytaj() ?: return
+        val z = _ui.value.tostZ ?: return
+        if (tekst.isBlank() || _ui.value.tostWysyla) return
+        _ui.update { it.copy(tostWysyla = true, tostBlad = null) }
+        viewModelScope.launch {
+            val w = withContext(Dispatchers.IO) { MostKlient(p.adres, p.klucz).tostWyslij(p.token, z, tekst) }
+            when (w) {
+                is MostKlient.Wynik.Ok -> _ui.update { u -> u.copy(tostWysyla = false, tostWatek = if (u.tostZ == z) u.tostWatek + w.wartosc else u.tostWatek) }
+                is MostKlient.Wynik.Blad -> _ui.update { it.copy(tostWysyla = false, tostBlad = opisBledu(w)) }
+            }
+            odswiezTost()
         }
     }
 
