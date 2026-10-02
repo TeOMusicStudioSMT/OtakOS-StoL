@@ -24,6 +24,7 @@ import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.TableRestaurant
@@ -75,11 +76,14 @@ import com.example.ui.stol.PamiecKatedryEkran
 import com.example.ui.stol.RozmowaDelegata
 import com.example.ui.stol.StolEkran
 import com.example.ui.stol.StolViewModel
+import com.example.ui.stol.TostKontakty
+import com.example.ui.stol.TostWatek
 import kotlinx.coroutines.delay
 
 /**
  * StoL: Stół ratyfikacji Katedry na marmurze z AI Studio — ale na prawdziwych danych z mostu.
- * 0 Stół · 1 Izba Akceptacji · 2 Historia · 3 Agenci (rozmowa przez Delegata, pamięć Katedry) · 4 Katedra (parowanie, stado, świat klocków).
+ * 0 Stół · 1 Izba Akceptacji · 2 Historia · 3 Agenci (rozmowa przez Delegata, pamięć Katedry) · 4 Katedra (parowanie, stado, świat klocków)
+ * · 5 TOST (rozmowy z innymi Katedrami przez własną Katedrę).
  */
 @Composable
 fun StolApp(
@@ -103,6 +107,16 @@ fun StolApp(
             }
         }
     }
+    // TOST: kontakty i otwarty wątek co 5 s, tylko gdy zakładka TOST jest na ekranie.
+    LaunchedEffect(ui.zakladka, ui.tostZ) {
+        if (ui.zakladka != 5) return@LaunchedEffect
+        cyklZycia.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                viewModel.odswiezTost()
+                delay(5_000)
+            }
+        }
+    }
     LaunchedEffect(ui.komunikat) {
         ui.komunikat?.let {
             snackbar.showSnackbar(it)
@@ -113,13 +127,14 @@ fun StolApp(
     BackHandler(enabled = ui.formularz && !ui.pracuje) { viewModel.pokazFormularz(false) }
     BackHandler(enabled = ui.zakladka == 3 && ui.rozmowa != null) { viewModel.zamknijRozmowe() }
     BackHandler(enabled = ui.zakladka == 3 && ui.rozmowa == null && ui.pamiecOtwarta) { viewModel.pokazPamiec(false) }
+    BackHandler(enabled = ui.zakladka == 5 && ui.tostZ != null) { viewModel.zamknijTost() }
 
     MarbleBackground(modifier = modifier, lightingMode = oswietlenie) {
         Scaffold(
             containerColor = Color.Transparent,
             snackbarHost = { SnackbarHost(snackbar) },
             topBar = {
-                if (ui.zakladka != 4) {
+                if (ui.zakladka != 4 && ui.zakladka != 5) {
                     NaglowekStolu(ui.karty, glos = ui.glos, onGlos = { viewModel.przelaczGlos() }, onOswietlenie = {
                         oswietlenie = TableLightingMode.entries[(oswietlenie.ordinal + 1) % TableLightingMode.entries.size]
                     })
@@ -129,6 +144,7 @@ fun StolApp(
                 PasekZakladek(
                     wybrana = ui.zakladka,
                     czeka = ui.karty.count { it.czekaNaSuwerena },
+                    tostNowe = ui.tost?.kontakty?.sumOf { it.nieprzeczytane } ?: 0,
                     onWybierz = { viewModel.wybierz(it) }
                 )
             },
@@ -163,6 +179,21 @@ fun StolApp(
                         blad = ui.bladAkcji,
                         onPoloz = { viewModel.poloz(it) },
                         onAnuluj = { viewModel.pokazFormularz(false) }
+                    )
+                    ui.zakladka == 5 && ui.tostZ != null -> TostWatek(
+                        nick = ui.tostZ!!,
+                        wiadomosci = ui.tostWatek,
+                        wysyla = ui.tostWysyla,
+                        blad = ui.tostBlad,
+                        onWyslij = { viewModel.wyslijTost(it) },
+                        onZamknij = { viewModel.zamknijTost() }
+                    )
+                    ui.zakladka == 5 -> TostKontakty(
+                        k = ui.tost,
+                        wczytuje = ui.tostWczytuje,
+                        blad = ui.tostBlad,
+                        onOtworz = { viewModel.otworzTost(it) },
+                        onOdswiez = { viewModel.odswiezTost() }
                     )
                     ui.zakladka == 0 -> StolEkran(ui.karty, ui.wczytano, ui.blad) { viewModel.otworz(it.id) }
                     ui.zakladka == 1 -> IzbaAkceptacji(ui.karty, ui.wczytano, ui.blad) { viewModel.otworz(it.id) }
@@ -260,7 +291,7 @@ private fun Licznik(etykieta: String, ile: Int, kolor: Color, modifier: Modifier
 }
 
 @Composable
-private fun PasekZakladek(wybrana: Int, czeka: Int, onWybierz: (Int) -> Unit) {
+private fun PasekZakladek(wybrana: Int, czeka: Int, tostNowe: Int, onWybierz: (Int) -> Unit) {
     val ciemny = isSystemInDarkTheme()
     NavigationBar(
         containerColor = if (ciemny) Color(0xEE101724) else Color(0xF2FFFFFF),
@@ -296,6 +327,14 @@ private fun PasekZakladek(wybrana: Int, czeka: Int, onWybierz: (Int) -> Unit) {
             selected = wybrana == 4, onClick = { onWybierz(4) },
             icon = { Icon(Icons.Default.AccountBalance, contentDescription = "Katedra") },
             label = { Text("Katedra", fontSize = 11.sp) }, modifier = Modifier.testTag("nav_tab_katedra")
+        )
+        NavigationBarItem(
+            selected = wybrana == 5, onClick = { onWybierz(5) },
+            icon = {
+                if (tostNowe > 0) BadgedBox(badge = { Badge { Text("$tostNowe") } }) { Icon(Icons.Default.Forum, contentDescription = "TOST") }
+                else Icon(Icons.Default.Forum, contentDescription = "TOST")
+            },
+            label = { Text("TOST", fontSize = 11.sp) }, modifier = Modifier.testTag("nav_tab_tost")
         )
     }
 }

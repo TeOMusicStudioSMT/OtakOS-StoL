@@ -311,3 +311,41 @@ class DelegatTest {
         assertEquals(MostKlient.Wynik.Blad("Nie wskazano procesu."), k.zwolnij("t", emptyList()))
     }
 }
+
+/** TOST między Katedrami: dokładnie takie JSON-y oddaje most (services/TostSiec.js, /api/tost/siec/…). */
+class TostTest {
+    @Suppress("UNCHECKED_CAST")
+    private fun j(s: String) = Json.parsuj(s) as Map<String, Any?>
+
+    @Test fun kontaktyZMostu() {
+        val k = KontaktyTost.zJson(j("""{"success":true,"ja":"teo-center","kontakty":[{"nick":"kael-elara","motto":"Echo","online":true,"nieprzeczytane":2,"czeka":1,"ostatnia":{"tekst":"Cześć","czas":"2026-10-02T23:00:00Z","kierunek":"przychodzaca"}},{"nick":"stara","online":false}],"rejestr":{"ok":true}}"""))
+        assertEquals("teo-center", k.ja)
+        assertEquals(2, k.kontakty.size)
+        assertEquals(KontaktTost("kael-elara", "Echo", true, 2, 1, "Cześć"), k.kontakty[0])
+        assertEquals(false, k.kontakty[1].online)
+        assertNull(k.bladRejestru)
+        assertEquals("rejestr HTTP 502", KontaktyTost.zJson(j("""{"ja":"","kontakty":[],"rejestr":{"blad":"rejestr HTTP 502"}}""")).bladRejestru)
+        assertNull("pusty nick = brak wizytówki", KontaktyTost.zJson(j("""{"ja":"","kontakty":[]}""")).ja)
+    }
+
+    @Test fun wiadomosciIStany() {
+        val czeka = WiadomoscTost.zJson(j("""{"id":"a","do":"kael-elara","kierunek":"wychodzaca","tekst":"test","czas":"t","stan":"czeka","blad":"odbiorca offline — czeka"}"""))!!
+        assertEquals("⏳ czeka (odbiorca offline — czeka)", czeka.opisStanu)
+        assertEquals("✓ dostarczona", czeka.copy(stan = "dostarczona", blad = null).opisStanu)
+        val przych = WiadomoscTost.zJson(j("""{"id":"b","z":"kael-elara","kierunek":"przychodzaca","tekst":"hej","czas":"t"}"""))!!
+        assertTrue(przych.przychodzaca)
+        assertEquals("", przych.opisStanu)
+        assertNull(WiadomoscTost.zJson(j("""{"tekst":"bez id"}""")))
+    }
+
+    @Test fun linkWizytowekZapamietujeMojaKatedre() {
+        assertEquals("https://otakos.wtf/#katedry?moja=teo-center", linkWizytowek("teo-center"))
+        assertEquals("https://otakos.wtf/#katedry", linkWizytowek(null))
+    }
+
+    @Test fun wysylkaSprawdzaZanimZapyta() {
+        val k = MostKlient("http://127.0.0.1:9", "k".repeat(48), limitMs = 500)
+        assertTrue(k.tostWyslij("t", "kael-elara", "   ") is MostKlient.Wynik.Blad)
+        assertTrue(k.tostWyslij("t", "kael-elara", "x".repeat(4001)) is MostKlient.Wynik.Blad)
+    }
+}
