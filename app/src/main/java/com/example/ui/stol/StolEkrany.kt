@@ -49,6 +49,8 @@ import com.example.most.AkcjaStolu
 import com.example.most.Gatunek
 import com.example.most.KartaStolu
 import com.example.most.NowaKarta
+import com.example.most.OczekujacaKatedra
+import com.example.most.StanRejestru
 import com.example.most.Rozmowca
 import com.example.most.Warsztat
 import com.example.most.ZdarzenieSzyny
@@ -187,8 +189,15 @@ fun StolEkran(karty: List<KartaStolu>, wczytano: Boolean, blad: String?, onOtwor
 
 /** Zakładka 1 — Izba Akceptacji: tylko to, co czeka na Suwerena (przyjąć propozycję albo zratyfikować Biblię). */
 @Composable
-fun IzbaAkceptacji(karty: List<KartaStolu>, wczytano: Boolean, blad: String?, onOtworz: (KartaStolu) -> Unit) {
+fun IzbaAkceptacji(
+    karty: List<KartaStolu>, wczytano: Boolean, blad: String?, onOtworz: (KartaStolu) -> Unit,
+    /** 🏛️ Katedry czekające na zatwierdzenie w sieci otakos.wtf — tylko gdy ta Katedra jest zarządcą rejestru. */
+    rejestr: StanRejestru? = null,
+    pracujeRejestr: Boolean = false,
+    onKatedra: (OczekujacaKatedra, Boolean) -> Unit = { _, _ -> },
+) {
     val czeka = karty.filter { it.czekaNaSuwerena }
+    val katedry = rejestr?.takeIf { it.jestZarzadca }?.oczekujace.orEmpty()
     LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
             Text("Izba Akceptacji", fontWeight = FontWeight.Bold, fontSize = 20.sp)
@@ -198,7 +207,23 @@ fun IzbaAkceptacji(karty: List<KartaStolu>, wczytano: Boolean, blad: String?, on
             )
         }
         item { Ostrzezenie(blad) }
-        if (czeka.isEmpty() && wczytano) item { Pusto("Nic nie czeka", "Wszystkie karty są w pracy stada albo już zdecydowane.") }
+        if (katedry.isNotEmpty()) {
+            item { Text("🏛️ Katedry do zatwierdzenia · ${katedry.size}", fontWeight = FontWeight.SemiBold, color = Color(0xFFD97706)) }
+            items(katedry, key = { "katedra-" + it.nick + it.klucz }) { k ->
+                Marmur(akcent = Color(0xFFD97706)) {
+                    Text(k.nick, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    val temu = czasIso(k.kiedy)?.let { ileTemu((System.currentTimeMillis() - it) / 1000) }
+                    Text(listOfNotNull(k.powod, temu?.let { "meldunek $it" }).joinToString(" · "), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("klucz: ${k.klucz.takeLast(16)}", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = { onKatedra(k, true) }, enabled = !pracujeRejestr) { Text("✓ Zatwierdź na otakos.wtf") }
+                        OutlinedButton(onClick = { onKatedra(k, false) }, enabled = !pracujeRejestr) { Text("Odrzuć") }
+                    }
+                }
+            }
+        }
+        rejestr?.takeIf { it.jestZarzadca }?.blad?.let { b -> item { Text("Rejestr otakos.wtf: $b", fontSize = 12.sp, color = Color(0xFFD97706)) } }
+        if (czeka.isEmpty() && katedry.isEmpty() && wczytano) item { Pusto("Nic nie czeka", "Wszystkie karty są w pracy stada albo już zdecydowane.") }
         val (ratyfikacja, przyjecie) = czeka.partition { it.moznaRatyfikowac }
         if (ratyfikacja.isNotEmpty()) {
             item { Text("Do ratyfikacji · ${ratyfikacja.size}", fontWeight = FontWeight.SemiBold, color = kolor("do_akceptacji")) }

@@ -162,6 +162,18 @@ class MostKlient(
         }
     }
 
+    // ── 🏛️ Zatwierdzanie Katedr przez Stół (most/Tost.kt: StanRejestru) ──
+
+    /** Czy ta Katedra jest zarządcą rejestru otakos.wtf i kto czeka na zatwierdzenie (`GET /api/rejestr/stan`). */
+    fun rejestrStan(token: String): Wynik<StanRejestru> =
+        zapytaj("GET", "/api/rejestr/stan", null, mapOf("X-Stado-Token" to token), 20_000) { StanRejestru.zJson(it) }
+
+    /** Zatwierdź albo odrzuć Katedrę (`POST /api/rejestr/zatwierdz|odrzuc`); most odmawia, gdy to nie Katedra zarządcy. */
+    fun rejestrDecyzja(token: String, katedra: OczekujacaKatedra, zatwierdz: Boolean): Wynik<Unit> {
+        val cialo = "{\"nick\":${jsonNapis(katedra.nick)},\"klucz\":${jsonNapis(katedra.klucz)}}"
+        return zapytaj("POST", if (zatwierdz) "/api/rejestr/zatwierdz" else "/api/rejestr/odrzuc", cialo, mapOf("X-Stado-Token" to token), 20_000) { }
+    }
+
     private fun sciezkaId(id: String) = java.net.URLEncoder.encode(id, "UTF-8").replace("+", "%20")
 
     /**

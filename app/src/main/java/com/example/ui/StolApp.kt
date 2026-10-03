@@ -143,7 +143,7 @@ fun StolApp(
             bottomBar = {
                 PasekZakladek(
                     wybrana = ui.zakladka,
-                    czeka = ui.karty.count { it.czekaNaSuwerena },
+                    czeka = ui.karty.count { it.czekaNaSuwerena } + (ui.rejestr?.takeIf { it.jestZarzadca }?.oczekujace?.size ?: 0),
                     tostNowe = ui.tost?.kontakty?.sumOf { it.nieprzeczytane } ?: 0,
                     onWybierz = { viewModel.wybierz(it) }
                 )
@@ -196,7 +196,11 @@ fun StolApp(
                         onOdswiez = { viewModel.odswiezTost() }
                     )
                     ui.zakladka == 0 -> StolEkran(ui.karty, ui.wczytano, ui.blad) { viewModel.otworz(it.id) }
-                    ui.zakladka == 1 -> IzbaAkceptacji(ui.karty, ui.wczytano, ui.blad) { viewModel.otworz(it.id) }
+                    ui.zakladka == 1 -> IzbaAkceptacji(
+                        ui.karty, ui.wczytano, ui.blad, onOtworz = { viewModel.otworz(it.id) },
+                        rejestr = ui.rejestr, pracujeRejestr = ui.pracujeRejestr,
+                        onKatedra = { k, zatwierdz -> viewModel.decyzjaKatedry(k, zatwierdz) }
+                    )
                     ui.zakladka == 2 -> HistoriaKatedry(ui.zdarzenia, ui.wczytano, ui.blad)
                     ui.zakladka == 3 && ui.rozmowa != null -> RozmowaDelegata(
                         rozmowa = ui.rozmowa!!,
