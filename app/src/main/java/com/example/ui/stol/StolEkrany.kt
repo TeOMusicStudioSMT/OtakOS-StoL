@@ -236,9 +236,10 @@ fun IzbaAkceptacji(
                 Marmur(akcent = Color(0xFFDC2626)) {
                     Text(pub.tytul, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     Text(pub.nazwa, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    pub.kanalNazwa?.let { Text("→ kanał: $it", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFFDC2626)) }
                     Text(pub.opis, fontSize = 13.sp, maxLines = 8, overflow = TextOverflow.Ellipsis)
                     if (pub.tagi.isNotEmpty()) Text(pub.tagi.joinToString(" ") { "#$it" }, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("Kronikarz to napisał. Poprawki tytułu i opisu — w Hubie (Impresariat). Film pójdzie jako niepubliczny.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Kronikarz to napisał. Poprawki tytułu, opisu i kanału — w Hubie (Impresariat). Film pójdzie jako niepubliczny.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(onClick = { onPublikacja(pub, true) }, enabled = !pracujeYT) { Text("✓ Wyślij na YouTube") }
                         OutlinedButton(onClick = { onPublikacja(pub, false) }, enabled = !pracujeYT) { Text("Odrzuć") }
