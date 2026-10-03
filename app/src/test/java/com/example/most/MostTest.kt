@@ -365,3 +365,18 @@ class RejestrTest {
         assertTrue(!inna.jestZarzadca)
     }
 }
+
+class PublikacjeYouTubeTest {
+    @Suppress("UNCHECKED_CAST")
+    private fun j(s: String) = Json.parsuj(s) as Map<String, Any?>
+
+    @Test fun listaZMostu() {
+        val l = PublikacjaYouTube.lista(j("""{"success":true,"publikacje":[{"id":"yt_1","etap":"do_akceptacji","nazwa":"rozpad-materii — Rozpad Percepcji","tytul":"Rozpad Percepcji","opis":"Film.","tagi":["ambient","otakos"]},{"id":"yt_2","etap":"prywatna","nazwa":"x","url":"https://youtu.be/abcdefghijk","uwaga":"YouTube trzyma prywatnie"},{"etap":"bez-id"}]}"""))
+        assertEquals(2, l.size)
+        assertTrue(l[0].czekaNaSuwerena)
+        assertEquals(listOf("ambient", "otakos"), l[0].tagi)
+        assertTrue(!l[1].czekaNaSuwerena)
+        assertEquals("🔒 na YouTube, ale prywatny", l[1].opisEtapu)
+        assertEquals("https://youtu.be/abcdefghijk", l[1].url)
+    }
+}

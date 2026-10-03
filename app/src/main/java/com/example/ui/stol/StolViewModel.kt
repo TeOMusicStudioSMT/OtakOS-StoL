@@ -13,6 +13,7 @@ import com.example.most.MostKlient
 import com.example.most.NowaKarta
 import com.example.most.OczekujacaKatedra
 import com.example.most.StanRejestru
+import com.example.most.PublikacjaYouTube
 import com.example.most.PamiecKatedry
 import com.example.most.Rozmowca
 import com.example.most.RozmowaUi
@@ -75,6 +76,9 @@ data class StolUiState(
     /** 🏛️ Zatwierdzanie Katedr (tylko gdy ta Katedra jest zarządcą rejestru otakos.wtf) — w Izbie Akceptacji. */
     val rejestr: StanRejestru? = null,
     val pracujeRejestr: Boolean = false,
+    /** 📺 Publikacje YouTube od Kronikarza — „do akceptacji” w Izbie. */
+    val publikacjeYT: List<PublikacjaYouTube> = emptyList(),
+    val pracujeYT: Boolean = false,
 )
 
 
@@ -130,6 +134,7 @@ class StolViewModel(application: Application) : AndroidViewModel(application) {
             // Rozmówcy Delegata zmieniają się rzadko (nowa karta roli w Katedrze) — dociągamy, dopóki lista pusta.
             val rozmowcy = if (_ui.value.rozmowcy.isEmpty()) async { k.rozmowcy(p.token) } else null
             val rejestr = async { k.rejestrStan(p.token) }
+            val publikacjeYT = async { k.youtubePublikacje(p.token) }
             val wk = karty.await()
             val wz = zdarzenia.await()
             val ws = stan.await()
@@ -148,6 +153,7 @@ class StolViewModel(application: Application) : AndroidViewModel(application) {
                     gatunki = (ws as? MostKlient.Wynik.Ok)?.wartosc?.gatunki ?: u.gatunki,
                     rozmowcy = (rozmowcy?.await() as? MostKlient.Wynik.Ok)?.wartosc ?: u.rozmowcy,
                     rejestr = (rejestr.await() as? MostKlient.Wynik.Ok)?.wartosc ?: u.rejestr,
+                    publikacjeYT = (publikacjeYT.await() as? MostKlient.Wynik.Ok)?.wartosc ?: u.publikacjeYT,
                     blad = (wk as? MostKlient.Wynik.Blad)?.let(::opisBledu),
                 )
             }
@@ -315,6 +321,21 @@ class StolViewModel(application: Application) : AndroidViewModel(application) {
                 is MostKlient.Wynik.Blad -> _ui.update { it.copy(tostWysyla = false, tostBlad = opisBledu(w)) }
             }
             odswiezTost()
+        }
+    }
+
+    /** ✓ / ✕ publikacji YouTube — ✓ oddaje film Impresariatowi (niepubliczny). */
+    fun decyzjaPublikacji(pub: PublikacjaYouTube, zatwierdz: Boolean) {
+        val p = store.wczytaj() ?: return
+        _ui.update { it.copy(pracujeYT = true) }
+        viewModelScope.launch {
+            val w = withContext(Dispatchers.IO) { MostKlient(p.adres, p.klucz).youtubeDecyzja(p.token, pub.id, zatwierdz) }
+            val zdanie = when (w) {
+                is MostKlient.Wynik.Ok -> if (zatwierdz) "„${pub.tytul}” idzie na YouTube (niepubliczny)." else "„${pub.tytul}” odrzucona."
+                is MostKlient.Wynik.Blad -> opisBledu(w)
+            }
+            _ui.update { u -> u.copy(pracujeYT = false, komunikat = zdanie, publikacjeYT = if (w is MostKlient.Wynik.Ok) u.publikacjeYT.filter { it.id != pub.id } else u.publikacjeYT) }
+            odswiez()
         }
     }
 

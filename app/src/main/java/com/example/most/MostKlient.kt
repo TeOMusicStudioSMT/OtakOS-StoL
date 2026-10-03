@@ -174,6 +174,16 @@ class MostKlient(
         return zapytaj("POST", if (zatwierdz) "/api/rejestr/zatwierdz" else "/api/rejestr/odrzuc", cialo, mapOf("X-Stado-Token" to token), 20_000) { }
     }
 
+    // ── 📺 Publikacje YouTube od stada (most/YouTube.kt) ──
+
+    /** Publikacje przygotowane przez Kronikarza i ich etap (`GET /api/youtube/publikacje`). */
+    fun youtubePublikacje(token: String): Wynik<List<PublikacjaYouTube>> =
+        zapytaj("GET", "/api/youtube/publikacje", null, mapOf("X-Stado-Token" to token), 20_000) { PublikacjaYouTube.lista(it) }
+
+    /** ✓ = Impresariat wysyła film jako niepubliczny; ✕ = odrzucona (`POST /api/youtube/publikacje/:id/zatwierdz|odrzuc`). */
+    fun youtubeDecyzja(token: String, id: String, zatwierdz: Boolean): Wynik<Unit> =
+        zapytaj("POST", "/api/youtube/publikacje/${sciezkaId(id)}/${if (zatwierdz) "zatwierdz" else "odrzuc"}", "{}", mapOf("X-Stado-Token" to token), 20_000) { }
+
     private fun sciezkaId(id: String) = java.net.URLEncoder.encode(id, "UTF-8").replace("+", "%20")
 
     /**
