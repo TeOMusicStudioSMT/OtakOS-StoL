@@ -78,3 +78,37 @@ data class WiadomoscTost(
 /** Link do wizytówek na otakos.wtf, który zapamięta w przeglądarce telefonu „moją Katedrę". */
 fun linkWizytowek(ja: String?): String =
     if (ja.isNullOrBlank()) "https://otakos.wtf/#katedry" else "https://otakos.wtf/#katedry?moja=$ja"
+
+/**
+ * 🏛️ Zatwierdzanie Katedr przez Stół (Suweren 2026-10-03): Katedra zarządcy rejestru otakos.wtf pokazuje
+ * Katedry, które się meldują bez zatwierdzenia (`GET /api/rejestr/stan`), a Suweren decyduje w Izbie Akceptacji
+ * (`POST /api/rejestr/zatwierdz|odrzuc`). Inna Katedra widzi tylko, kto jest zarządcą.
+ */
+data class OczekujacaKatedra(val nick: String, val klucz: String, val kiedy: String, val powod: String) {
+    companion object {
+        fun zJson(m: Map<String, Any?>): OczekujacaKatedra? {
+            val nick = m.napis("nick")?.takeIf { it.isNotBlank() } ?: return null
+            val klucz = m.napis("klucz")?.takeIf { it.isNotBlank() } ?: return null
+            return OczekujacaKatedra(nick, klucz, m.napis("kiedy").orEmpty(), m.napis("powod") ?: "nowa Katedra")
+        }
+    }
+}
+
+data class StanRejestru(
+    val jestZarzadca: Boolean,
+    val zarzadca: String?,
+    val oczekujace: List<OczekujacaKatedra>,
+    val zatwierdzone: List<String>,
+    val blad: String?,
+) {
+    companion object {
+        @Suppress("UNCHECKED_CAST")
+        fun zJson(m: Map<String, Any?>) = StanRejestru(
+            jestZarzadca = m.logika("jestZarzadca") == true,
+            zarzadca = m.napis("zarzadca"),
+            oczekujace = m.lista("oczekujace").mapNotNull { (it as? Map<String, Any?>)?.let(OczekujacaKatedra::zJson) },
+            zatwierdzone = m.lista("zatwierdzone").mapNotNull { (it as? Map<String, Any?>)?.napis("nick") },
+            blad = m.napis("blad"),
+        )
+    }
+}

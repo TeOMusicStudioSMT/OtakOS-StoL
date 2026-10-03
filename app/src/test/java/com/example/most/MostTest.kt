@@ -349,3 +349,19 @@ class TostTest {
         assertTrue(k.tostWyslij("t", "kael-elara", "x".repeat(4001)) is MostKlient.Wynik.Blad)
     }
 }
+
+/** Zatwierdzanie Katedr przez Stół: dokładnie taki JSON oddaje most (services/ZarzadcaRejestru.js, /api/rejestr/stan). */
+class RejestrTest {
+    @Suppress("UNCHECKED_CAST")
+    private fun j(s: String) = Json.parsuj(s) as Map<String, Any?>
+
+    @Test fun stanZarzadcy() {
+        val s = StanRejestru.zJson(j("""{"success":true,"ja":"teo-mas","zarzadca":"teo-mas","jestZarzadca":true,"oczekujace":[{"nick":"kael-elara","klucz":"MCowBQ","kiedy":"2026-10-03T00:00:00.000Z","powod":"nowa Katedra"},{"nick":"bez-klucza"}],"zatwierdzone":[{"nick":"nowa-kat","klucz":"x","kiedy":"t"}],"odrzuconych":0,"ostatniaWysylka":null}"""))
+        assertTrue(s.jestZarzadca)
+        assertEquals(listOf(OczekujacaKatedra("kael-elara", "MCowBQ", "2026-10-03T00:00:00.000Z", "nowa Katedra")), s.oczekujace)
+        assertEquals(listOf("nowa-kat"), s.zatwierdzone)
+        val inna = StanRejestru.zJson(j("""{"ja":"ktos","zarzadca":"teo-mas","jestZarzadca":false,"oczekujace":[],"zatwierdzone":[]}"""))
+        assertEquals("teo-mas", inna.zarzadca)
+        assertTrue(!inna.jestZarzadca)
+    }
+}

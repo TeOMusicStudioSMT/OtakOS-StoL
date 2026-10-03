@@ -69,6 +69,8 @@ Odświeżanie co 10 s, tylko gdy zakładka stołu jest na ekranie. Dawne atrapy 
 - **🪪 Wizytówki Katedr**: przycisk otwiera `otakos.wtf/#katedry?moja=<nick>` — przeglądarka telefonu
   zapamiętuje „moją Katedrę” i panel „Twoja” pokazuje ją z sieci (telefon nie widzi mostu 127.0.0.1).
 - Wymaga, by Katedra miała wizytówkę (nick), Kwantowy Tunel i włączony meldunek.
+- **🏛️ Zatwierdzanie Katedr** (Izba Akceptacji): gdy Twoja Katedra jest zarządcą rejestru otakos.wtf, nowe Katedry, które
+  się zameldowały, czekają tu na „✓ Zatwierdź” / „Odrzuć” — Katedra wysyła podpisaną listę do rejestru; plakietka Izby je liczy.
 
 ## Wizja (Suweren, 2026-09-24)
 

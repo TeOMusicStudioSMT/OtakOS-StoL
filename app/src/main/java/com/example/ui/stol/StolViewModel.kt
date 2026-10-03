@@ -11,6 +11,8 @@ import com.example.most.KartaStolu
 import com.example.most.KontaktyTost
 import com.example.most.MostKlient
 import com.example.most.NowaKarta
+import com.example.most.OczekujacaKatedra
+import com.example.most.StanRejestru
 import com.example.most.PamiecKatedry
 import com.example.most.Rozmowca
 import com.example.most.RozmowaUi
@@ -70,6 +72,9 @@ data class StolUiState(
     val tostZ: String? = null,
     val tostWatek: List<WiadomoscTost> = emptyList(),
     val tostWysyla: Boolean = false,
+    /** 🏛️ Zatwierdzanie Katedr (tylko gdy ta Katedra jest zarządcą rejestru otakos.wtf) — w Izbie Akceptacji. */
+    val rejestr: StanRejestru? = null,
+    val pracujeRejestr: Boolean = false,
 )
 
 
@@ -124,6 +129,7 @@ class StolViewModel(application: Application) : AndroidViewModel(application) {
             val stan = async { k.stan(p.token) }
             // Rozmówcy Delegata zmieniają się rzadko (nowa karta roli w Katedrze) — dociągamy, dopóki lista pusta.
             val rozmowcy = if (_ui.value.rozmowcy.isEmpty()) async { k.rozmowcy(p.token) } else null
+            val rejestr = async { k.rejestrStan(p.token) }
             val wk = karty.await()
             val wz = zdarzenia.await()
             val ws = stan.await()
@@ -141,6 +147,7 @@ class StolViewModel(application: Application) : AndroidViewModel(application) {
                     zdarzenia = (wz as? MostKlient.Wynik.Ok)?.wartosc ?: u.zdarzenia,
                     gatunki = (ws as? MostKlient.Wynik.Ok)?.wartosc?.gatunki ?: u.gatunki,
                     rozmowcy = (rozmowcy?.await() as? MostKlient.Wynik.Ok)?.wartosc ?: u.rozmowcy,
+                    rejestr = (rejestr.await() as? MostKlient.Wynik.Ok)?.wartosc ?: u.rejestr,
                     blad = (wk as? MostKlient.Wynik.Blad)?.let(::opisBledu),
                 )
             }
@@ -308,6 +315,21 @@ class StolViewModel(application: Application) : AndroidViewModel(application) {
                 is MostKlient.Wynik.Blad -> _ui.update { it.copy(tostWysyla = false, tostBlad = opisBledu(w)) }
             }
             odswiezTost()
+        }
+    }
+
+    /** Zatwierdź / odrzuć Katedrę w sieci otakos.wtf — Katedra zarządcy wyśle podpisaną listę do rejestru. */
+    fun decyzjaKatedry(k: OczekujacaKatedra, zatwierdz: Boolean) {
+        val p = store.wczytaj() ?: return
+        _ui.update { it.copy(pracujeRejestr = true) }
+        viewModelScope.launch {
+            val w = withContext(Dispatchers.IO) { MostKlient(p.adres, p.klucz).rejestrDecyzja(p.token, k, zatwierdz) }
+            val zdanie = when (w) {
+                is MostKlient.Wynik.Ok -> if (zatwierdz) "„${k.nick}” zatwierdzona — pojawi się na otakos.wtf." else "„${k.nick}” odrzucona."
+                is MostKlient.Wynik.Blad -> opisBledu(w)
+            }
+            _ui.update { u -> u.copy(pracujeRejestr = false, komunikat = zdanie, rejestr = if (w is MostKlient.Wynik.Ok) u.rejestr?.let { r -> r.copy(oczekujace = r.oczekujace.filter { it != k }) } else u.rejestr) }
+            odswiez()
         }
     }
 
