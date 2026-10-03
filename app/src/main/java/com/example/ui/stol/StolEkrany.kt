@@ -51,6 +51,7 @@ import com.example.most.KartaStolu
 import com.example.most.NowaKarta
 import com.example.most.OczekujacaKatedra
 import com.example.most.StanRejestru
+import com.example.most.PublikacjaYouTube
 import com.example.most.Rozmowca
 import com.example.most.Warsztat
 import com.example.most.ZdarzenieSzyny
@@ -195,9 +196,15 @@ fun IzbaAkceptacji(
     rejestr: StanRejestru? = null,
     pracujeRejestr: Boolean = false,
     onKatedra: (OczekujacaKatedra, Boolean) -> Unit = { _, _ -> },
+    /** 📺 Publikacje YouTube przygotowane przez Kronikarza. */
+    publikacjeYT: List<PublikacjaYouTube> = emptyList(),
+    pracujeYT: Boolean = false,
+    onPublikacja: (PublikacjaYouTube, Boolean) -> Unit = { _, _ -> },
 ) {
     val czeka = karty.filter { it.czekaNaSuwerena }
     val katedry = rejestr?.takeIf { it.jestZarzadca }?.oczekujace.orEmpty()
+    val doYT = publikacjeYT.filter { it.czekaNaSuwerena }
+    val prywatne = publikacjeYT.filter { it.etap == "prywatna" || it.etap == "blad" }
     LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
             Text("Izba Akceptacji", fontWeight = FontWeight.Bold, fontSize = 20.sp)
@@ -223,7 +230,28 @@ fun IzbaAkceptacji(
             }
         }
         rejestr?.takeIf { it.jestZarzadca }?.blad?.let { b -> item { Text("Rejestr otakos.wtf: $b", fontSize = 12.sp, color = Color(0xFFD97706)) } }
-        if (czeka.isEmpty() && katedry.isEmpty() && wczytano) item { Pusto("Nic nie czeka", "Wszystkie karty są w pracy stada albo już zdecydowane.") }
+        if (doYT.isNotEmpty()) {
+            item { Text("📺 Na YouTube · ${doYT.size}", fontWeight = FontWeight.SemiBold, color = Color(0xFFDC2626)) }
+            items(doYT, key = { "yt-" + it.id }) { pub ->
+                Marmur(akcent = Color(0xFFDC2626)) {
+                    Text(pub.tytul, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text(pub.nazwa, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(pub.opis, fontSize = 13.sp, maxLines = 8, overflow = TextOverflow.Ellipsis)
+                    if (pub.tagi.isNotEmpty()) Text(pub.tagi.joinToString(" ") { "#$it" }, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Kronikarz to napisał. Poprawki tytułu i opisu — w Hubie (Impresariat). Film pójdzie jako niepubliczny.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = { onPublikacja(pub, true) }, enabled = !pracujeYT) { Text("✓ Wyślij na YouTube") }
+                        OutlinedButton(onClick = { onPublikacja(pub, false) }, enabled = !pracujeYT) { Text("Odrzuć") }
+                    }
+                }
+            }
+        }
+        if (prywatne.isNotEmpty()) {
+            items(prywatne, key = { "ytp-" + it.id }) { pub ->
+                Text("📺 ${pub.tytul.ifBlank { pub.nazwa }} — ${pub.opisEtapu}${(pub.blad ?: pub.uwaga)?.let { ": $it" } ?: ""}", fontSize = 12.sp, color = Color(0xFFD97706))
+            }
+        }
+        if (czeka.isEmpty() && katedry.isEmpty() && doYT.isEmpty() && wczytano) item { Pusto("Nic nie czeka", "Wszystkie karty są w pracy stada albo już zdecydowane.") }
         val (ratyfikacja, przyjecie) = czeka.partition { it.moznaRatyfikowac }
         if (ratyfikacja.isNotEmpty()) {
             item { Text("Do ratyfikacji · ${ratyfikacja.size}", fontWeight = FontWeight.SemiBold, color = kolor("do_akceptacji")) }
