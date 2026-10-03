@@ -18,6 +18,8 @@ data class PublikacjaYouTube(
     val url: String?,
     val blad: String?,
     val uwaga: String?,
+    /** Kanał, na który pójdzie film (wiele kanałów; zmiana kanału — w Hubie). */
+    val kanalNazwa: String? = null,
 ) {
     val czekaNaSuwerena: Boolean get() = etap == "do_akceptacji"
 
@@ -46,6 +48,7 @@ data class PublikacjaYouTube(
                 url = m.napis("url"),
                 blad = m.napis("blad"),
                 uwaga = m.napis("uwaga"),
+                kanalNazwa = m.napis("kanalNazwa")?.takeIf { it.isNotBlank() },
             )
         }
 

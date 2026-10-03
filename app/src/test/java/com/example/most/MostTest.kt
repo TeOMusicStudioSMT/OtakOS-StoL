@@ -371,10 +371,12 @@ class PublikacjeYouTubeTest {
     private fun j(s: String) = Json.parsuj(s) as Map<String, Any?>
 
     @Test fun listaZMostu() {
-        val l = PublikacjaYouTube.lista(j("""{"success":true,"publikacje":[{"id":"yt_1","etap":"do_akceptacji","nazwa":"rozpad-materii — Rozpad Percepcji","tytul":"Rozpad Percepcji","opis":"Film.","tagi":["ambient","otakos"]},{"id":"yt_2","etap":"prywatna","nazwa":"x","url":"https://youtu.be/abcdefghijk","uwaga":"YouTube trzyma prywatnie"},{"etap":"bez-id"}]}"""))
+        val l = PublikacjaYouTube.lista(j("""{"success":true,"publikacje":[{"id":"yt_1","etap":"do_akceptacji","nazwa":"rozpad-materii — Rozpad Percepcji","tytul":"Rozpad Percepcji","opis":"Film.","tagi":["ambient","otakos"],"kanalNazwa":"TeO Univers Studio"},{"id":"yt_2","etap":"prywatna","nazwa":"x","url":"https://youtu.be/abcdefghijk","uwaga":"YouTube trzyma prywatnie"},{"etap":"bez-id"}]}"""))
         assertEquals(2, l.size)
         assertTrue(l[0].czekaNaSuwerena)
         assertEquals(listOf("ambient", "otakos"), l[0].tagi)
+        assertEquals("TeO Univers Studio", l[0].kanalNazwa)
+        assertNull(l[1].kanalNazwa)
         assertTrue(!l[1].czekaNaSuwerena)
         assertEquals("🔒 na YouTube, ale prywatny", l[1].opisEtapu)
         assertEquals("https://youtu.be/abcdefghijk", l[1].url)
