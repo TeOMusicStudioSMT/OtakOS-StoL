@@ -125,8 +125,10 @@ fun StolApp(
     }
     BackHandler(enabled = ui.otwarta != null && !ui.pracuje) { viewModel.zamknij() }
     BackHandler(enabled = ui.formularz && !ui.pracuje) { viewModel.pokazFormularz(false) }
-    BackHandler(enabled = ui.zakladka == 3 && ui.rozmowa != null) { viewModel.zamknijRozmowe() }
-    BackHandler(enabled = ui.zakladka == 3 && ui.rozmowa == null && ui.pamiecOtwarta) { viewModel.pokazPamiec(false) }
+    // Narada przy karcie Stołu (rozmowa.karta) nie otwiera się w zakładce Agenci — tam tylko zwykła rozmowa.
+    val rozmowaAgentow = ui.rozmowa?.takeIf { it.karta == null }
+    BackHandler(enabled = ui.zakladka == 3 && rozmowaAgentow != null) { viewModel.zamknijRozmowe() }
+    BackHandler(enabled = ui.zakladka == 3 && rozmowaAgentow == null && ui.pamiecOtwarta) { viewModel.pokazPamiec(false) }
     BackHandler(enabled = ui.zakladka == 5 && ui.tostZ != null) { viewModel.zamknijTost() }
 
     MarbleBackground(modifier = modifier, lightingMode = oswietlenie) {
@@ -172,7 +174,12 @@ fun StolApp(
                         pracuje = ui.pracuje,
                         blad = ui.bladAkcji,
                         onDecyzja = { akcja, uczestnicy, warsztat -> viewModel.decyzja(otwarta, akcja, uczestnicy, warsztat) },
-                        onZamknij = { viewModel.zamknij() }
+                        onZamknij = { viewModel.zamknij() },
+                        rozmowcy = ui.rozmowcy,
+                        rozmowa = ui.rozmowa,
+                        onRozmowca = { viewModel.otworzNarade(it, otwarta.id) },
+                        onWyslijNarade = { viewModel.wyslij(it) },
+                        onZakonczNarade = { viewModel.zamknijRozmowe() }
                     )
                     ui.formularz -> FormularzKarty(
                         pracuje = ui.pracuje,
@@ -204,8 +211,8 @@ fun StolApp(
                         onPublikacja = { pub, zatwierdz -> viewModel.decyzjaPublikacji(pub, zatwierdz) }
                     )
                     ui.zakladka == 2 -> HistoriaKatedry(ui.zdarzenia, ui.wczytano, ui.blad)
-                    ui.zakladka == 3 && ui.rozmowa != null -> RozmowaDelegata(
-                        rozmowa = ui.rozmowa!!,
+                    ui.zakladka == 3 && rozmowaAgentow != null -> RozmowaDelegata(
+                        rozmowa = rozmowaAgentow,
                         onWyslij = { viewModel.wyslij(it) },
                         onZamknij = { viewModel.zamknijRozmowe() }
                     )

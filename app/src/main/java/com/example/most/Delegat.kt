@@ -38,14 +38,26 @@ data class Rozmowca(
 /** Jedna wypowiedź w rozmowie na telefonie. `kto`: "suweren" albo "delegat". */
 data class Wypowiedz(val kto: String, val tekst: String)
 
-/** Rozmowa z TeOgochi przez Delegata: wypowiedzi na telefonie, id rozmowy z mostu, „myśli" = czeka na model. */
+/**
+ * Rozmowa z TeOgochi przez Delegata: wypowiedzi na telefonie, id rozmowy z mostu, „myśli" = czeka na model.
+ * `karta` — id karty Stołu, przy której toczy się narada (most dokłada do rozmowy jej fakty); null = zakładka Agenci.
+ */
 data class RozmowaUi(
     val z: Rozmowca,
     val wypowiedzi: List<Wypowiedz> = emptyList(),
     val rozmowaId: String? = null,
     val mysli: Boolean = false,
     val blad: String? = null,
+    val karta: String? = null,
 )
+
+/** Ciało `POST /api/delegat/rozmowa`: delegat, tekst, dalej ta sama rozmowa, a przy Stole — id karty. */
+fun cialoRozmowy(delegat: String, tekst: String, rozmowaId: String?, karta: String? = null): String = buildString {
+    append("{\"delegat\":").append(jsonNapis(delegat)).append(",\"tekst\":").append(jsonNapis(tekst.trim()))
+    if (!rozmowaId.isNullOrBlank()) append(",\"rozmowaId\":").append(jsonNapis(rozmowaId))
+    if (!karta.isNullOrBlank()) append(",\"karta\":").append(jsonNapis(karta))
+    append('}')
+}
 
 data class OdpowiedzDelegata(val rozmowaId: String, val odpowiedz: String, val model: String?) {
     companion object {

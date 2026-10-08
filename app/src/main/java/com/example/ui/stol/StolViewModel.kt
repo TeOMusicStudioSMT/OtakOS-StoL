@@ -172,7 +172,7 @@ class StolViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun zamknij() = _ui.update { it.copy(otwarta = null, bladAkcji = null) }
+    fun zamknij() = _ui.update { it.copy(otwarta = null, bladAkcji = null, rozmowa = it.rozmowa?.takeIf { r -> r.karta == null }) }
 
     /** Przyjmij / odrzuć / ratyfikuj. Odmowa mostu zostaje na karcie jego słowami. */
     fun decyzja(karta: KartaStolu, akcja: AkcjaStolu, uczestnicy: List<String> = emptyList(), warsztat: Warsztat? = null) {
@@ -221,7 +221,12 @@ class StolViewModel(application: Application) : AndroidViewModel(application) {
 
     // ── Delegat: rozmowa z dowolnym TeOgochi ──
 
-    fun otworzRozmowe(r: Rozmowca) = _ui.update { u -> if (u.rozmowa?.z?.id == r.id) u else u.copy(rozmowa = RozmowaUi(r)) }
+    fun otworzRozmowe(r: Rozmowca) = _ui.update { u -> if (u.rozmowa?.let { it.z.id == r.id && it.karta == null } == true) u else u.copy(rozmowa = RozmowaUi(r)) }
+
+    /** 🪑 Narada przy karcie Stołu: rozmowa z wybranym TeOgochi, który zna fakty tej karty (most dokłada je sam). */
+    fun otworzNarade(r: Rozmowca, kartaId: String) = _ui.update { u ->
+        if (u.rozmowa?.let { it.z.id == r.id && it.karta == kartaId } == true) u else u.copy(rozmowa = RozmowaUi(r, karta = kartaId))
+    }
     fun zamknijRozmowe() = _ui.update { it.copy(rozmowa = null) }
 
     /** Wyślij wypowiedź; odpowiedź przychodzi po całej pętli narzędzi (bywa minuta i dłużej). Głos czyta ją, gdy włączony. */
@@ -231,9 +236,9 @@ class StolViewModel(application: Application) : AndroidViewModel(application) {
         if (tekst.isBlank() || r.mysli) return
         _ui.update { it.copy(rozmowa = r.copy(wypowiedzi = r.wypowiedzi + Wypowiedz("suweren", tekst.trim()), mysli = true, blad = null)) }
         viewModelScope.launch {
-            val w = withContext(Dispatchers.IO) { MostKlient(p.adres, p.klucz).rozmawiaj(p.token, r.z.id, tekst, r.rozmowaId) }
+            val w = withContext(Dispatchers.IO) { MostKlient(p.adres, p.klucz).rozmawiaj(p.token, r.z.id, tekst, r.rozmowaId, r.karta) }
             _ui.update { u ->
-                val teraz = u.rozmowa?.takeIf { it.z.id == r.z.id } ?: return@update u
+                val teraz = u.rozmowa?.takeIf { it.z.id == r.z.id && it.karta == r.karta } ?: return@update u
                 when (w) {
                     is MostKlient.Wynik.Ok -> u.copy(rozmowa = teraz.copy(wypowiedzi = teraz.wypowiedzi + Wypowiedz("delegat", w.wartosc.odpowiedz), rozmowaId = w.wartosc.rozmowaId, mysli = false))
                     is MostKlient.Wynik.Blad -> u.copy(rozmowa = teraz.copy(mysli = false, blad = opisBledu(w)))

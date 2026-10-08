@@ -290,6 +290,12 @@ class DelegatTest {
         assertNull(OdpowiedzDelegata.zJson(m("""{"success":true}""")))
     }
 
+    @Test fun cialoRozmowyPrzyKarcieStolu() {
+        assertEquals("""{"delegat":"kodeks","tekst":"czego brakuje?"}""", cialoRozmowy("kodeks", " czego brakuje? ", null))
+        assertEquals("""{"delegat":"dyrygent","tekst":"a oko?","rozmowaId":"tel-1","karta":"k-7"}""", cialoRozmowy("dyrygent", "a oko?", "tel-1", "k-7"))
+        assertEquals("""{"delegat":"joanna","tekst":"hej"}""", cialoRozmowy("joanna", "hej", "", ""))
+    }
+
     @Test fun pamiecZPidamiIOpisem() {
         val p = PamiecKatedry.zJson(m("""{"success":true,"totalGB":42.6,"freeGB":15,"procesy":[{"pid":4100,"name":"python.exe","mb":2425,"opis":"ComfyUI (obrazy, wideo, muzyka)","skrypt":"main.py","chroniony":false,"uwaga":"Zamknięcie przerwie render w toku."},{"pid":3000,"name":"Memory Compression","mb":1799,"opis":"skompresowana pamięć Windows","chroniony":true},{"name":"bez pid"}]}"""))
         assertEquals(15.0, p.wolneGB, 0.0)

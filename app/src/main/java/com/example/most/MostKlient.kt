@@ -115,14 +115,11 @@ class MostKlient(
     /**
      * Jedna tura rozmowy (`POST /api/delegat/rozmowa`, bez strumienia). Model lokalny z pętlą narzędzi potrafi
      * myśleć minutami (zwłaszcza gdy ComfyUI liczy wideo) — dlatego osobny, długi limit odczytu.
+     * `karta` — narada przy karcie Stołu: most dokłada do rozmowy fakty tej karty.
      */
-    fun rozmawiaj(token: String, delegat: String, tekst: String, rozmowaId: String?, limitOdpowiedziMs: Int = 300_000): Wynik<OdpowiedzDelegata> {
+    fun rozmawiaj(token: String, delegat: String, tekst: String, rozmowaId: String?, karta: String? = null, limitOdpowiedziMs: Int = 300_000): Wynik<OdpowiedzDelegata> {
         if (tekst.isBlank()) return Wynik.Blad("Pusta wypowiedź.")
-        val cialo = buildString {
-            append("{\"delegat\":").append(jsonNapis(delegat)).append(",\"tekst\":").append(jsonNapis(tekst.trim()))
-            if (!rozmowaId.isNullOrBlank()) append(",\"rozmowaId\":").append(jsonNapis(rozmowaId))
-            append('}')
-        }
+        val cialo = cialoRozmowy(delegat, tekst, rozmowaId, karta)
         return zapytaj("POST", "/api/delegat/rozmowa", cialo, mapOf("X-Stado-Token" to token), limitOdpowiedziMs) { m ->
             OdpowiedzDelegata.zJson(m) ?: throw IOException("Most nie oddał odpowiedzi delegata.")
         }

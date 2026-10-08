@@ -128,7 +128,7 @@ fun RozmowaDelegata(
 }
 
 @Composable
-private fun Dymek(moje: Boolean, tekst: String) {
+internal fun Dymek(moje: Boolean, tekst: String) {
     Box(Modifier.fillMaxWidth(), contentAlignment = if (moje) Alignment.CenterEnd else Alignment.CenterStart) {
         Text(
             tekst, fontSize = 14.sp,
@@ -136,6 +136,73 @@ private fun Dymek(moje: Boolean, tekst: String) {
                 .background(if (moje) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f))
                 .padding(horizontal = 12.dp, vertical = 8.dp),
         )
+    }
+}
+
+/**
+ * 🪑 Narada przy karcie Stołu (Suweren 2026-10-08: „wkomponuj okno delegata do stołu”). Ten sam Delegat co w zakładce
+ * Agenci, ale most dokłada do rozmowy fakty karty (etap, wizja, oceny Sędziego, braki, Biblia, zlecenia). Decyzje
+ * zostają przyciskami karty — Delegat doradza. Bez LazyColumn: karta sama się przewija.
+ */
+@OptIn(ExperimentalMaterial3Api::class)   // FilterChip
+@Composable
+fun NaradaPrzyKarcie(
+    kartaId: String,
+    rozmowcy: List<Rozmowca>,
+    rozmowa: RozmowaUi?,
+    onRozmowca: (Rozmowca) -> Unit,
+    onWyslij: (String) -> Unit,
+    onZamknij: () -> Unit,
+) {
+    val tu = rozmowa?.takeIf { it.karta == kartaId }
+    var tekst by remember(kartaId, tu?.z?.id) { mutableStateOf("") }
+    Marmur(akcent = Color(0xFF7C3AED)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("💬 Narada przy karcie", fontWeight = FontWeight.SemiBold)
+                Text(
+                    if (tu == null) "Zapytaj TeOgochi o tę kartę — zna jej etap, oceny Sędziego, braki i Biblię. Decyzja zostaje Twoja."
+                    else "${tu.z.emoji} ${tu.z.imie} zna tę kartę. Decyzja zostaje przy przyciskach.",
+                    fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (tu != null) TextButton(onClick = onZamknij, enabled = !tu.mysli) { Text("Zakończ") }
+        }
+        if (rozmowcy.isEmpty()) {
+            Text("Most nie podał jeszcze rozmówców — poczekaj na odświeżenie.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(top = 6.dp)) {
+                items(rozmowcy, key = { it.id }) { r ->
+                    FilterChip(
+                        selected = tu?.z?.id == r.id, onClick = { onRozmowca(r) }, enabled = tu?.mysli != true,
+                        label = { Text("${r.emoji} ${r.imie}", fontSize = 12.sp) },
+                        modifier = Modifier.testTag("narada_${r.id}"),
+                    )
+                }
+            }
+        }
+        if (tu != null) {
+            Column(Modifier.fillMaxWidth().padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (tu.wypowiedzi.isEmpty() && !tu.mysli) Text(
+                    "Np. „czego brakuje do 9/10?”, „czy ratyfikować?”, „co zrobi stado po przyjęciu?”.",
+                    fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                tu.wypowiedzi.forEach { w -> Dymek(w.kto == "suweren", w.tekst) }
+                if (tu.mysli) Dymek(false, "${tu.z.imie} myśli… (model lokalny, bywa minuta)")
+                tu.blad?.let { Text(it, color = Color(0xFFDC2626), fontSize = 12.sp) }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = tekst, onValueChange = { tekst = it }, modifier = Modifier.weight(1f).testTag("pole_narady"),
+                        placeholder = { Text("Pytanie o tę kartę…") }, maxLines = 4, enabled = !tu.mysli,
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Button(
+                        onClick = { onWyslij(tekst); tekst = "" }, enabled = tekst.isNotBlank() && !tu.mysli,
+                        modifier = Modifier.testTag("btn_wyslij_narade"),
+                    ) { Text("Wyślij") }
+                }
+            }
+        }
     }
 }
 

@@ -53,6 +53,7 @@ import com.example.most.OczekujacaKatedra
 import com.example.most.StanRejestru
 import com.example.most.PublikacjaYouTube
 import com.example.most.Rozmowca
+import com.example.most.RozmowaUi
 import com.example.most.Warsztat
 import com.example.most.ZdarzenieSzyny
 import com.example.most.czasIso
@@ -349,6 +350,12 @@ fun KartaOtwarta(
     blad: String?,
     onDecyzja: (AkcjaStolu, List<String>, Warsztat?) -> Unit,
     onZamknij: () -> Unit,
+    // 🪑 Narada przy karcie: Delegat z faktami tej karty (most dokłada je sam).
+    rozmowcy: List<Rozmowca> = emptyList(),
+    rozmowa: RozmowaUi? = null,
+    onRozmowca: (Rozmowca) -> Unit = {},
+    onWyslijNarade: (String) -> Unit = {},
+    onZakonczNarade: () -> Unit = {},
 ) {
     // Przyjęcie: ile rund doskonalenia i ile pętli na punkt planu. Doskonalenie: ile rund jeszcze.
     var warsztat by remember(k.id) { mutableStateOf(Warsztat(rundy = 1, petla = k.projekt?.petla ?: 0)) }
@@ -445,6 +452,8 @@ fun KartaOtwarta(
         }
 
         if (k.moznaNaNoc) WarsztatKarty(k, warsztat, pracuje, onDecyzja) { warsztat = it }
+
+        NaradaPrzyKarcie(k.id, rozmowcy, rozmowa, onRozmowca, onWyslijNarade, onZakonczNarade)
 
         if (k.moznaOdrzucic) {
             OutlinedButton(onClick = { onDecyzja(AkcjaStolu.ODRZUC, emptyList(), null) }, enabled = !pracuje, modifier = Modifier.fillMaxWidth()) { Text("Odłóż ze stołu") }
