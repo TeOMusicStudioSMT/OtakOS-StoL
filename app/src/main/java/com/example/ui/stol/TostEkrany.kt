@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.sp
 import com.example.most.KontaktyTost
 import com.example.most.WiadomoscTost
 import com.example.most.linkWizytowek
+import com.example.ui.tlumacz.tl
 
 /*
  * 💬 TOST między Katedrami w StoL-u (Suweren 2026-10-02). Telefon pisze przez SWOJĄ Katedrę, ona szyfruje
@@ -62,18 +63,18 @@ fun TostKontakty(
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("💬 TOST · Katedry", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                    Text(tl("💬 TOST · Katedry"), fontWeight = FontWeight.Bold, fontSize = 20.sp)
                     Text(
                         if (k?.ja != null) "Jesteś: ${k.ja} · szyfrowane end-to-end przez Twoją Katedrę" else "Rozmowy z innymi Katedrami w sieci otakos.wtf",
                         fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                OutlinedButton(onClick = onOdswiez, enabled = !wczytuje) { Text(if (wczytuje) "⟳ …" else "↻") }
+                OutlinedButton(onClick = onOdswiez, enabled = !wczytuje) { Text(if (wczytuje) tl("⟳ …") else tl("↻")) }
             }
             Spacer(Modifier.padding(top = 4.dp))
             // Wizytówki Katedr na otakos.wtf — link zapamięta w przeglądarce telefonu „moją Katedrę".
             OutlinedButton(onClick = { uri.openUri(linkWizytowek(k?.ja)) }, modifier = Modifier.testTag("btn_wizytowki")) {
-                Text("🪪 Wizytówki Katedr na otakos.wtf")
+                Text(tl("🪪 Wizytówki Katedr na otakos.wtf"))
             }
             blad?.let { Text(it, color = Color(0xFFDC2626), fontSize = 12.sp) }
             k?.bladRejestru?.let { Text("Rejestr otakos.wtf: $it", color = Color(0xFFD97706), fontSize = 12.sp) }
@@ -87,7 +88,7 @@ fun TostKontakty(
         items(k?.kontakty.orEmpty(), key = { it.nick }) { c ->
             Marmur(akcent = if (c.nieprzeczytane > 0) Color(0xFF059669) else null, onClick = { onOtworz(c.nick) }) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(if (c.online) "🟢" else "⚪", fontSize = 12.sp)
+                    Text(if (c.online) tl("🟢") else tl("⚪"), fontSize = 12.sp)
                     Spacer(Modifier.width(8.dp))
                     Column(Modifier.weight(1f)) {
                         Text(c.nick, fontWeight = FontWeight.Bold, fontSize = 15.sp)
@@ -117,11 +118,11 @@ fun TostWatek(
     LaunchedEffect(wiadomosci.size) { if (wiadomosci.isNotEmpty()) lista.animateScrollToItem(wiadomosci.size - 1) }
     Column(Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onZamknij) { Text("← TOST") }
+            TextButton(onClick = onZamknij) { Text(tl("← TOST")) }
             Spacer(Modifier.width(4.dp))
             Column(Modifier.weight(1f)) {
                 Text("🏛️ $nick", fontWeight = FontWeight.Bold, fontSize = 17.sp)
-                Text("szyfrowane end-to-end", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(tl("szyfrowane end-to-end"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         LazyColumn(state = lista, modifier = Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
@@ -136,7 +137,7 @@ fun TostWatek(
             )
             Spacer(Modifier.width(8.dp))
             Button(onClick = { onWyslij(tekst); tekst = "" }, enabled = tekst.isNotBlank() && !wysyla, modifier = Modifier.testTag("btn_wyslij_tost")) {
-                Text(if (wysyla) "…" else "Wyślij")
+                Text(if (wysyla) tl("…") else tl("Wyślij"))
             }
         }
     }

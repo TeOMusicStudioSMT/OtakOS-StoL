@@ -58,6 +58,7 @@ import com.example.most.Warsztat
 import com.example.most.ZdarzenieSzyny
 import com.example.most.czasIso
 import com.example.most.ileTemu
+import com.example.ui.tlumacz.tl
 
 /*
  * 🪑 Ekrany Stołu ratyfikacji: stół z kartami, Izba Akceptacji, Historia (szyna Katedry),
@@ -131,7 +132,7 @@ fun KartaNaStole(k: KartaStolu, onOtworz: () -> Unit) {
             )
         }
         if (k.projekt == null && k.sugerowani.isNotEmpty()) {
-            Text("Proponowani: ${k.sugerowani.joinToString(", ")}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(tl("Proponowani:") + " ${k.sugerowani.joinToString(", ")}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -139,8 +140,8 @@ fun KartaNaStole(k: KartaStolu, onOtworz: () -> Unit) {
 @Composable
 internal fun Pusto(tytul: String, opis: String) {
     Column(Modifier.fillMaxWidth().padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(tytul, fontWeight = FontWeight.Bold, fontSize = 17.sp)
-        Text(opis, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(tl(tytul), fontWeight = FontWeight.Bold, fontSize = 17.sp)
+        Text(tl(opis), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -153,12 +154,12 @@ private fun Ostrzezenie(blad: String?) {
 @Composable
 fun NieSparowany(onDoKatedry: () -> Unit) {
     Column(Modifier.fillMaxSize().padding(28.dp), verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("🪑 Stół czeka na Katedrę", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+        Text(tl("🪑 Stół czeka na Katedrę"), fontWeight = FontWeight.Bold, fontSize = 20.sp)
         Text(
-            "Karty na stole, decyzje i historia żyją w Twojej Katedrze. Sparuj telefon (QR z karty „StoL” w Katedrze), a stół się zapełni.",
+            tl("Karty na stole, decyzje i historia żyją w Twojej Katedrze. Sparuj telefon (QR z karty „StoL” w Katedrze), a stół się zapełni."),
             fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Button(onClick = onDoKatedry) { Text("Przejdź do parowania") }
+        Button(onClick = onDoKatedry) { Text(tl("Przejdź do parowania")) }
     }
 }
 
@@ -208,15 +209,15 @@ fun IzbaAkceptacji(
     val prywatne = publikacjeYT.filter { it.etap == "prywatna" || it.etap == "blad" }
     LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
-            Text("Izba Akceptacji", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            Text(tl("Izba Akceptacji"), fontWeight = FontWeight.Bold, fontSize = 20.sp)
             Text(
-                "Propozycje czekają na przyjęcie (→ Projekt Stada), gotowe Biblie — na ratyfikację. Dopiero ratyfikacja uruchamia moduły Katedry.",
+                tl("Propozycje czekają na przyjęcie (→ Projekt Stada), gotowe Biblie — na ratyfikację. Dopiero ratyfikacja uruchamia moduły Katedry."),
                 fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         item { Ostrzezenie(blad) }
         if (katedry.isNotEmpty()) {
-            item { Text("🏛️ Katedry do zatwierdzenia · ${katedry.size}", fontWeight = FontWeight.SemiBold, color = Color(0xFFD97706)) }
+            item { Text(tl("🏛️ Katedry do zatwierdzenia") + " · ${katedry.size}", fontWeight = FontWeight.SemiBold, color = Color(0xFFD97706)) }
             items(katedry, key = { "katedra-" + it.nick + it.klucz }) { k ->
                 Marmur(akcent = Color(0xFFD97706)) {
                     Text(k.nick, fontWeight = FontWeight.Bold, fontSize = 16.sp)
@@ -224,15 +225,15 @@ fun IzbaAkceptacji(
                     Text(listOfNotNull(k.powod, temu?.let { "meldunek $it" }).joinToString(" · "), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text("klucz: ${k.klucz.takeLast(16)}", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = { onKatedra(k, true) }, enabled = !pracujeRejestr) { Text("✓ Zatwierdź na otakos.wtf") }
-                        OutlinedButton(onClick = { onKatedra(k, false) }, enabled = !pracujeRejestr) { Text("Odrzuć") }
+                        Button(onClick = { onKatedra(k, true) }, enabled = !pracujeRejestr) { Text(tl("✓ Zatwierdź na otakos.wtf")) }
+                        OutlinedButton(onClick = { onKatedra(k, false) }, enabled = !pracujeRejestr) { Text(tl("Odrzuć")) }
                     }
                 }
             }
         }
         rejestr?.takeIf { it.jestZarzadca }?.blad?.let { b -> item { Text("Rejestr otakos.wtf: $b", fontSize = 12.sp, color = Color(0xFFD97706)) } }
         if (doYT.isNotEmpty()) {
-            item { Text("📺 Na YouTube · ${doYT.size}", fontWeight = FontWeight.SemiBold, color = Color(0xFFDC2626)) }
+            item { Text(tl("📺 Na YouTube") + " · ${doYT.size}", fontWeight = FontWeight.SemiBold, color = Color(0xFFDC2626)) }
             items(doYT, key = { "yt-" + it.id }) { pub ->
                 Marmur(akcent = Color(0xFFDC2626)) {
                     Text(pub.tytul, fontWeight = FontWeight.Bold, fontSize = 16.sp)
@@ -240,10 +241,10 @@ fun IzbaAkceptacji(
                     pub.kanalNazwa?.let { Text("→ kanał: $it", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFFDC2626)) }
                     Text(pub.opis, fontSize = 13.sp, maxLines = 8, overflow = TextOverflow.Ellipsis)
                     if (pub.tagi.isNotEmpty()) Text(pub.tagi.joinToString(" ") { "#$it" }, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("Kronikarz to napisał. Poprawki tytułu, opisu i kanału — w Hubie (Impresariat). Film pójdzie jako niepubliczny.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(tl("Kronikarz to napisał. Poprawki tytułu, opisu i kanału — w Hubie (Impresariat). Film pójdzie jako niepubliczny."), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = { onPublikacja(pub, true) }, enabled = !pracujeYT) { Text("✓ Wyślij na YouTube") }
-                        OutlinedButton(onClick = { onPublikacja(pub, false) }, enabled = !pracujeYT) { Text("Odrzuć") }
+                        Button(onClick = { onPublikacja(pub, true) }, enabled = !pracujeYT) { Text(tl("✓ Wyślij na YouTube")) }
+                        OutlinedButton(onClick = { onPublikacja(pub, false) }, enabled = !pracujeYT) { Text(tl("Odrzuć")) }
                     }
                 }
             }
@@ -256,11 +257,11 @@ fun IzbaAkceptacji(
         if (czeka.isEmpty() && katedry.isEmpty() && doYT.isEmpty() && wczytano) item { Pusto("Nic nie czeka", "Wszystkie karty są w pracy stada albo już zdecydowane.") }
         val (ratyfikacja, przyjecie) = czeka.partition { it.moznaRatyfikowac }
         if (ratyfikacja.isNotEmpty()) {
-            item { Text("Do ratyfikacji · ${ratyfikacja.size}", fontWeight = FontWeight.SemiBold, color = kolor("do_akceptacji")) }
+            item { Text(tl("Do ratyfikacji") + " · ${ratyfikacja.size}", fontWeight = FontWeight.SemiBold, color = kolor("do_akceptacji")) }
             items(ratyfikacja, key = { it.id }) { k -> KartaNaStole(k) { onOtworz(k) } }
         }
         if (przyjecie.isNotEmpty()) {
-            item { Text("Do przyjęcia · ${przyjecie.size}", fontWeight = FontWeight.SemiBold, color = kolor("na_stole")) }
+            item { Text(tl("Do przyjęcia") + " · ${przyjecie.size}", fontWeight = FontWeight.SemiBold, color = kolor("na_stole")) }
             items(przyjecie, key = { it.id }) { k -> KartaNaStole(k) { onOtworz(k) } }
         }
     }
@@ -274,11 +275,11 @@ fun HistoriaKatedry(zdarzenia: List<ZdarzenieSzyny>, wczytano: Boolean, blad: St
     val widoczne = if (tylkoStol) zdarzenia.filter { it.rodzaj == "stol" || it.rodzaj == "projekt" || it.agent == "Stół" } else zdarzenia
     LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item {
-            Text("Historia", fontWeight = FontWeight.Bold, fontSize = 20.sp)
-            Text("Szyna zdarzeń Katedry — to, co naprawdę się stało.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(tl("Historia"), fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            Text(tl("Szyna zdarzeń Katedry — to, co naprawdę się stało."), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
-                FilterChip(selected = tylkoStol, onClick = { tylkoStol = true }, label = { Text("Stół i projekty") })
-                FilterChip(selected = !tylkoStol, onClick = { tylkoStol = false }, label = { Text("Cała szyna") })
+                FilterChip(selected = tylkoStol, onClick = { tylkoStol = true }, label = { Text(tl("Stół i projekty")) })
+                FilterChip(selected = !tylkoStol, onClick = { tylkoStol = false }, label = { Text(tl("Cała szyna")) })
             }
         }
         item { Ostrzezenie(blad) }
@@ -307,8 +308,8 @@ fun AgenciStada(
     val lista = gatunki.sortedWith(compareByDescending<Gatunek> { it.wyklute }.thenByDescending { it.xp })
     LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item {
-            Text("Agenci stada", fontWeight = FontWeight.Bold, fontSize = 20.sp)
-            Text("To oni opracowują karty ze stołu — każdy na swoim modelu, w swojej dziedzinie. Stuknij, by porozmawiać.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(tl("Agenci stada"), fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            Text(tl("To oni opracowują karty ze stołu — każdy na swoim modelu, w swojej dziedzinie. Stuknij, by porozmawiać."), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         item { DelegatPasek(rozmowcy, onRozmowa, onPamiec) }
         if (lista.isEmpty() && wczytano) item { Pusto("Stado milczy", "Katedra nie opublikowała jeszcze migawki stada.") }
@@ -368,7 +369,7 @@ fun KartaOtwarta(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 10.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        TextButton(onClick = onZamknij, enabled = !pracuje) { Text("← Stół") }
+        TextButton(onClick = onZamknij, enabled = !pracuje) { Text(tl("← Stół")) }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(k.tytul, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             ZnaczekEtapu(k.etap)
@@ -378,20 +379,20 @@ fun KartaOtwarta(
             fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Marmur {
-            Text("Wizja", fontWeight = FontWeight.SemiBold)
+            Text(tl("Wizja"), fontWeight = FontWeight.SemiBold)
             Text(k.wizja, fontSize = 14.sp)
             if (k.tresc.isNotBlank()) {
-                TextButton(onClick = { calaTresc = !calaTresc }) { Text(if (calaTresc) "Zwiń treść" else "Pokaż całą treść karty") }
+                TextButton(onClick = { calaTresc = !calaTresc }) { Text(if (calaTresc) tl("Zwiń treść") else tl("Pokaż całą treść karty")) }
                 if (calaTresc) Text(k.tresc, fontSize = 13.sp)
             }
         }
 
         when (k.etap) {
             "na_stole", "utknela" -> {
-                if (k.etap == "utknela") Text("Projekt stada padł albo przerwał go restart Katedry — możesz przyjąć kartę od nowa.", fontSize = 13.sp, color = CZERWONY)
+                if (k.etap == "utknela") Text(tl("Projekt stada padł albo przerwał go restart Katedry — możesz przyjąć kartę od nowa."), fontSize = 13.sp, color = CZERWONY)
                 Marmur {
-                    Text("Kto opracuje kartę", fontWeight = FontWeight.SemiBold)
-                    if (wyklute.isEmpty()) Text("Nie widzę wyklutego stada — most wybierze sam (proponowani z karty albo całe stado).", fontSize = 12.sp)
+                    Text(tl("Kto opracuje kartę"), fontWeight = FontWeight.SemiBold)
+                    if (wyklute.isEmpty()) Text(tl("Nie widzę wyklutego stada — most wybierze sam (proponowani z karty albo całe stado)."), fontSize = 12.sp)
                     wyklute.forEach { g ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Checkbox(checked = g.id in wybrani, enabled = !pracuje, onCheckedChange = { wybrani = if (it) wybrani + g.id else wybrani - g.id })
@@ -404,19 +405,19 @@ fun KartaOtwarta(
                     if (obcy.isNotEmpty() && wyklute.isNotEmpty()) Text("Jeszcze nie wykluci: ${obcy.joinToString(", ")}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Marmur {
-                    Text("Jak ma pracować stado", fontWeight = FontWeight.SemiBold)
+                    Text(tl("Jak ma pracować stado"), fontWeight = FontWeight.SemiBold)
                     WyborWarsztatu(warsztat, pracuje, zPetla = true) { warsztat = it }
                 }
                 val zaMalo = wyklute.isNotEmpty() && wybrani.size < 2
                 Button(
                     onClick = { onDecyzja(AkcjaStolu.PRZYJMIJ, if (wyklute.isEmpty()) emptyList() else wyklute.map { it.id }.filter { it in wybrani }, warsztat) },
                     enabled = !pracuje && !zaMalo, modifier = Modifier.fillMaxWidth(),
-                ) { Text(if (pracuje) "Wysyłam do Katedry…" else "Przyjmij → Projekt Stada") }
-                if (zaMalo) Text("Wspólny projekt potrzebuje co najmniej dwóch TeOgochi.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("Stado napisze wkłady i Biblię projektu. Moduły (produkty, muzyka, 3D, wideo) ruszą dopiero po Twojej ratyfikacji.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                ) { Text(if (pracuje) tl("Wysyłam do Katedry…") else tl("Przyjmij → Projekt Stada")) }
+                if (zaMalo) Text(tl("Wspólny projekt potrzebuje co najmniej dwóch TeOgochi."), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(tl("Stado napisze wkłady i Biblię projektu. Moduły (produkty, muzyka, 3D, wideo) ruszą dopiero po Twojej ratyfikacji."), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             "opracowuje" -> Marmur(akcent = kolor("opracowuje")) {
-                Text("Stado pracuje", fontWeight = FontWeight.SemiBold)
+                Text(tl("Stado pracuje"), fontWeight = FontWeight.SemiBold)
                 k.projekt?.let {
                     if (it.rundy > 1) Text("Runda ${it.runda} z ${it.rundy}${if (it.petla > 0) " · pętla kreatywna ×${it.petla}" else ""}", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = kolor("opracowuje"))
                     Text("${it.gotowe}/${it.razem} wkładów gotowych w tej rundzie. Gdy powstanie Biblia, karta wróci do Izby Akceptacji.", fontSize = 13.sp)
@@ -425,7 +426,7 @@ fun KartaOtwarta(
             }
             "do_akceptacji" -> {
                 Marmur(akcent = kolor("do_akceptacji")) {
-                    Text("Biblia projektu", fontWeight = FontWeight.SemiBold)
+                    Text(tl("Biblia projektu"), fontWeight = FontWeight.SemiBold)
                     val biblia = k.projekt?.biblia.orEmpty()
                     Text(biblia.ifBlank { "Scalenie nie powstało — projekt skończył się z brakami. Możesz ratyfikować to, co jest, albo odłożyć kartę." }, fontSize = 13.sp)
                     k.projekt?.let { Text("Wkłady: ${it.gotowe}/${it.razem}${if (it.rundy > 1) " · po ${it.runda} z ${it.rundy} rund" else ""}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
@@ -434,20 +435,20 @@ fun KartaOtwarta(
                 Button(
                     onClick = { onDecyzja(AkcjaStolu.RATYFIKUJ, emptyList(), null) }, enabled = !pracuje, modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = kolor("zratyfikowane")),
-                ) { Text(if (pracuje) "Wysyłam do Katedry…" else "Ratyfikuj → moduły Katedry") }
-                Text("Ratyfikacja zleca modułom to, co przewidziały wkłady stada (produkty do Marketplace, muzykę, bryły 3D, wideo).", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                ) { Text(if (pracuje) tl("Wysyłam do Katedry…") else tl("Ratyfikuj → moduły Katedry")) }
+                Text(tl("Ratyfikacja zleca modułom to, co przewidziały wkłady stada (produkty do Marketplace, muzykę, bryły 3D, wideo)."), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             "zratyfikowane" -> Marmur(akcent = kolor("zratyfikowane")) {
-                Text("Zlecenia modułów", fontWeight = FontWeight.SemiBold)
+                Text(tl("Zlecenia modułów"), fontWeight = FontWeight.SemiBold)
                 val z = k.projekt?.zlecenia.orEmpty()
-                if (z.isEmpty()) Text("Wkłady nie miały zleceń dla modułów.", fontSize = 13.sp)
+                if (z.isEmpty()) Text(tl("Wkłady nie miały zleceń dla modułów."), fontSize = 13.sp)
                 z.forEach {
                     Text(
                         "${ZNAK_STANU[it.stan] ?: "·"} ${MODUL[it.modul] ?: it.modul}: ${it.opis}", fontSize = 13.sp,
                         color = if (it.stan == "blad" || it.stan == "przerwane") CZERWONY else MaterialTheme.colorScheme.onSurface,
                     )
                 }
-                if (z.any { it.stan == "blad" || it.stan == "przerwane" }) Text("Nieudane zlecenia ponawia się przy Katedrze (Projekt Stada → ponów).", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (z.any { it.stan == "blad" || it.stan == "przerwane" }) Text(tl("Nieudane zlecenia ponawia się przy Katedrze (Projekt Stada → ponów)."), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
@@ -456,12 +457,12 @@ fun KartaOtwarta(
         NaradaPrzyKarcie(k.id, rozmowcy, rozmowa, onRozmowca, onWyslijNarade, onZakonczNarade)
 
         if (k.moznaOdrzucic) {
-            OutlinedButton(onClick = { onDecyzja(AkcjaStolu.ODRZUC, emptyList(), null) }, enabled = !pracuje, modifier = Modifier.fillMaxWidth()) { Text("Odłóż ze stołu") }
+            OutlinedButton(onClick = { onDecyzja(AkcjaStolu.ODRZUC, emptyList(), null) }, enabled = !pracuje, modifier = Modifier.fillMaxWidth()) { Text(tl("Odłóż ze stołu")) }
         }
         blad?.let { Text("⚠️ $it", fontSize = 13.sp, color = CZERWONY) }
 
         if (k.decyzje.isNotEmpty()) {
-            Text("Decyzje", fontWeight = FontWeight.SemiBold)
+            Text(tl("Decyzje"), fontWeight = FontWeight.SemiBold)
             k.decyzje.forEach { d ->
                 val co = mapOf("przyjeta" to "przyjął", "odrzucona" to "odłożył", "zratyfikowana" to "zratyfikował", "doskonalona" to "odesłał do doskonalenia", "na_noc" to "dał na Nocną Zmianę")[d.co] ?: d.co
                 Text("• ${d.kto} $co · ${kiedy(d.kiedy)}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -475,7 +476,7 @@ fun KartaOtwarta(
 @Composable
 private fun OcenySedziego(oceny: List<com.example.most.OcenaRundy>, braki: List<String>) {
     if (oceny.isEmpty()) return
-    Text("⚖️ Sędzia: zgodność z wizją", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+    Text(tl("⚖️ Sędzia: zgodność z wizją"), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
     Text(oceny.joinToString("  →  ") { "R${it.runda}: ${it.ocena?.let { o -> "$o/10" } ?: "—"}" }, fontSize = 13.sp)
     braki.forEach { Text("· $it", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
 }
@@ -484,10 +485,10 @@ private fun OcenySedziego(oceny: List<com.example.most.OcenaRundy>, braki: List<
 @Composable
 private fun Licznik(etykieta: String, wartosc: Int, zakres: IntRange, wlaczony: Boolean, onZmiana: (Int) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(etykieta, fontSize = 13.sp, modifier = Modifier.weight(1f))
-        TextButton(onClick = { onZmiana(wartosc - 1) }, enabled = wlaczony && wartosc > zakres.first) { Text("−", fontSize = 18.sp) }
+        Text(tl(etykieta), fontSize = 13.sp, modifier = Modifier.weight(1f))
+        TextButton(onClick = { onZmiana(wartosc - 1) }, enabled = wlaczony && wartosc > zakres.first) { Text(tl("−"), fontSize = 18.sp) }
         Text("$wartosc", fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(24.dp))
-        TextButton(onClick = { onZmiana(wartosc + 1) }, enabled = wlaczony && wartosc < zakres.last) { Text("+", fontSize = 18.sp) }
+        TextButton(onClick = { onZmiana(wartosc + 1) }, enabled = wlaczony && wartosc < zakres.last) { Text(tl("+"), fontSize = 18.sp) }
     }
 }
 
@@ -498,7 +499,7 @@ fun WyborWarsztatu(w: Warsztat, pracuje: Boolean, zPetla: Boolean, onZmiana: (Wa
         Licznik("Rundy doskonalenia", w.rundy, 1..Warsztat.MAX_RUND, !pracuje) { onZmiana(w.copy(rundy = it)) }
         if (zPetla) Licznik("Pętla kreatywna na punkt planu", w.petla, 0..Warsztat.MAX_PETLI, !pracuje) { onZmiana(w.copy(petla = it)) }
         if (w.rundy > 1 || w.petla > 0) Text(
-            "Małe lokalne modele potrzebują kilku przejść — każda runda i pętla to kolejne minuty pracy karty graficznej.",
+            tl("Małe lokalne modele potrzebują kilku przejść — każda runda i pętla to kolejne minuty pracy karty graficznej."),
             fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
@@ -520,7 +521,7 @@ fun WarsztatKarty(
     onZmiana: (Warsztat) -> Unit,
 ) {
     Marmur(akcent = kolor("opracowuje")) {
-        Text(if (k.etap == "do_akceptacji") "Jeszcze nie to? Doskonal" else "Rundy doskonalenia", fontWeight = FontWeight.SemiBold)
+        Text(if (k.etap == "do_akceptacji") tl("Jeszcze nie to? Doskonal") else tl("Rundy doskonalenia"), fontWeight = FontWeight.SemiBold)
         Text(
             "Stado dołoży kolejne cegiełki na brakach Sędziego — każdy na swoim poprzednim wkładzie. Ocena ${Warsztat.CEL_OCENY}/10 kończy wcześniej." +
                 if (k.etap == "zratyfikowane") " Po rundach karta znów czeka na Twoją ratyfikację." else "",
@@ -535,7 +536,7 @@ fun WarsztatKarty(
                 )
             }
             if (!n.wlaczona) Text(
-                "Nocna Zmiana jest wyłączona w Katedrze — zadania na noc czekają, aż ją włączysz przy komputerze.",
+                tl("Nocna Zmiana jest wyłączona w Katedrze — zadania na noc czekają, aż ją włączysz przy komputerze."),
                 fontSize = 12.sp, color = kolor("do_akceptacji"),
             )
         }
@@ -560,22 +561,22 @@ fun FormularzKarty(pracuje: Boolean, blad: String?, onPoloz: (NowaKarta) -> Unit
     val karta = NowaKarta(tytul, tresc)
     val brak = karta.brak()
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        TextButton(onClick = onAnuluj, enabled = !pracuje) { Text("← Wróć") }
-        Text("Połóż na stół", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        TextButton(onClick = onAnuluj, enabled = !pracuje) { Text(tl("← Wróć")) }
+        Text(tl("Połóż na stół"), fontSize = 22.sp, fontWeight = FontWeight.Bold)
         Text(
-            "Propozycja dla stada. Sekcje „Wizja:” i „Uczestnicy:” w treści Katedra sama odczyta (tak jak z Podcast Twin).",
+            tl("Propozycja dla stada. Sekcje „Wizja:” i „Uczestnicy:” w treści Katedra sama odczyta (tak jak z Podcast Twin)."),
             fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         OutlinedTextField(
-            value = tytul, onValueChange = { tytul = it.take(NowaKarta.MAX_TYTULU) }, label = { Text("Tytuł, np. Forge Fashion") },
+            value = tytul, onValueChange = { tytul = it.take(NowaKarta.MAX_TYTULU) }, label = { Text(tl("Tytuł, np. Forge Fashion")) },
             singleLine = true, enabled = !pracuje, modifier = Modifier.fillMaxWidth(),
         )
         OutlinedTextField(
-            value = tresc, onValueChange = { tresc = it.take(NowaKarta.MAX_TRESCI) }, label = { Text("Treść propozycji") },
+            value = tresc, onValueChange = { tresc = it.take(NowaKarta.MAX_TRESCI) }, label = { Text(tl("Treść propozycji")) },
             minLines = 6, enabled = !pracuje, modifier = Modifier.fillMaxWidth(),
         )
         Button(onClick = { onPoloz(karta) }, enabled = !pracuje && brak == null, modifier = Modifier.fillMaxWidth()) {
-            Text(if (pracuje) "Wysyłam do Katedry…" else "Połóż na stół")
+            Text(if (pracuje) tl("Wysyłam do Katedry…") else tl("Połóż na stół"))
         }
         brak?.let { Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         blad?.let { Text("⚠️ $it", fontSize = 13.sp, color = CZERWONY) }

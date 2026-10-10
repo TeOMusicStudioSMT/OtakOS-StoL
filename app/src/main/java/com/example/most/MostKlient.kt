@@ -13,6 +13,7 @@ import java.net.URL
  *  · rozmowcy / rozmawiaj — Delegat: rozmowa z dowolnym TeOgochi (`/api/delegat/…`),
  *  · pamiec / zwolnij — RAM Katedry i zamykanie procesów po PID (`/api/system/memory`, `/api/system/free`).
  *  · tostKontakty / tostRozmowa / tostWyslij — TOST między Katedrami (`/api/tost/siec/…`).
+ *  · slownikTlumacza / tlumacz — napisy StoL-a w języku Suwerena (`/api/tlumacz…`, most/Tlumacz.kt).
  *
  * Każde żądanie niesie klucz Straży Mostu (`x-teo-klucz`) — telefon łączy się przez
  * Kwantowy Tunel, a most bez klucza odrzuca wszystko spoza maszyny Suwerena.
@@ -181,7 +182,19 @@ class MostKlient(
     fun youtubeDecyzja(token: String, id: String, zatwierdz: Boolean): Wynik<Unit> =
         zapytaj("POST", "/api/youtube/publikacje/${sciezkaId(id)}/${if (zatwierdz) "zatwierdz" else "odrzuc"}", "{}", mapOf("X-Stado-Token" to token), 20_000) { }
 
-    private fun sciezkaId(id: String) = java.net.URLEncoder.encode(id, "UTF-8").replace("+", "%20")
+    // ── 🌍 Tłumacz Katedry (most/Tlumacz.kt) — ten sam słownik co Hub i apki Pierścienia ──
+
+    /** Cały słownik języka z dysku Katedry (`GET /api/tlumacz/:jezyk`). */
+    fun slownikTlumacza(jezyk: String): Wynik<Map<String, String>> =
+        zapytaj("GET", "/api/tlumacz/${sciezkaId(jezyk)}", null, emptyMap(), 20_000) { m -> OdpowiedzTlumacza.napisy(m.obiekt("slownik")) }
+
+    /** Brakujące napisy — most tłumaczy je lokalnym modelem (paczka potrafi liczyć minutę i dłużej). */
+    fun tlumacz(jezyk: String, teksty: List<String>, limitOdpowiedziMs: Int = 180_000): Wynik<OdpowiedzTlumacza> {
+        if (teksty.isEmpty()) return Wynik.Ok(OdpowiedzTlumacza(emptyMap(), emptyList(), null))
+        return zapytaj("POST", "/api/tlumacz", SlownikTlumacza.cialoZapytania(jezyk, teksty), emptyMap(), limitOdpowiedziMs) { OdpowiedzTlumacza.zJson(it) }
+    }
+
+    private fun sciezkaId(id: String) =java.net.URLEncoder.encode(id, "UTF-8").replace("+", "%20")
 
     /**
      * Strumień stada (SSE, `GET /api/stado/strumien`). Blokuje wątek, dopóki połączenie żyje:

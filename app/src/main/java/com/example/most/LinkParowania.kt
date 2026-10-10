@@ -25,9 +25,12 @@ import java.net.URLEncoder
  * Adres świata klocków (strona mostu `/swiat/`, pokazywana w WebView).
  * Klucz i token jadą we FRAGMENCIE (#…) — fragment nie wychodzi w żądaniu HTTP,
  * więc nie ląduje w logach tunelu ani mostu; strona sama dokłada je do zapytań.
+ * `jezyk` — Tłumacz Katedry na stronie świata (public/tlumacz.js) przekłada ją na język StoL-a (`pl` = oryginał,
+ * podany wprost, bo strona pamięta ostatni język).
  */
-fun adresSwiata(adres: String, klucz: String, token: String): String =
-    "${adres.trimEnd('/')}/swiat/#k=${URLEncoder.encode(klucz, "UTF-8")}&t=${URLEncoder.encode(token, "UTF-8")}"
+fun adresSwiata(adres: String, klucz: String, token: String, jezyk: String? = null): String =
+    "${adres.trimEnd('/')}/swiat/#k=${URLEncoder.encode(klucz, "UTF-8")}&t=${URLEncoder.encode(token, "UTF-8")}" +
+        (FiltrTlumacza.kodJezyka(jezyk)?.let { "&jezyk=$it" } ?: "")
 
 data class LinkParowania(val adres: String, val klucz: String, val kod: String) {
 

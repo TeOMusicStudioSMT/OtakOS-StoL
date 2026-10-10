@@ -34,6 +34,7 @@ import com.example.most.Gatunek
 import com.example.most.NowyProjekt
 import com.example.most.ProjektStada
 import com.example.ui.stol.WyborWarsztatu
+import com.example.ui.tlumacz.tl
 
 /*
  * 🧩 Projekty stada na telefonie: karta projektu i natywny formularz nowego projektu.
@@ -101,23 +102,23 @@ internal fun FormularzProjektu(
         modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        TextButton(onClick = onAnuluj, enabled = !zakladanie) { Text("← Wróć") }
-        Text("Nowy wspólny projekt", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        TextButton(onClick = onAnuluj, enabled = !zakladanie) { Text(tl("← Wróć")) }
+        Text(tl("Nowy wspólny projekt"), fontSize = 22.sp, fontWeight = FontWeight.Bold)
         Text(
-            "Każdy TeOgochi wniesie swoją dziedzinę, na swoim modelu. Na końcu scalenie w Biblię projektu.",
+            tl("Każdy TeOgochi wniesie swoją dziedzinę, na swoim modelu. Na końcu scalenie w Biblię projektu."),
             fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         OutlinedTextField(
             value = nazwa, onValueChange = { nazwa = it.take(NowyProjekt.MAX_NAZWY) },
-            label = { Text("Nazwa, np. Uniwersum Teterhia") }, singleLine = true, enabled = !zakladanie,
+            label = { Text(tl("Nazwa, np. Uniwersum Teterhia")) }, singleLine = true, enabled = !zakladanie,
             modifier = Modifier.fillMaxWidth(),
         )
         OutlinedTextField(
             value = wizja, onValueChange = { wizja = it.take(NowyProjekt.MAX_WIZJI) },
-            label = { Text("Twoja wizja: świat, klimat, co ma powstać") }, minLines = 4, enabled = !zakladanie,
+            label = { Text(tl("Twoja wizja: świat, klimat, co ma powstać")) }, minLines = 4, enabled = !zakladanie,
             modifier = Modifier.fillMaxWidth(),
         )
-        Text("Kto bierze udział", fontWeight = FontWeight.SemiBold)
+        Text(tl("Kto bierze udział"), fontWeight = FontWeight.SemiBold)
         wyklute.forEach { g ->
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(
@@ -131,14 +132,14 @@ internal fun FormularzProjektu(
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("Wkłady same zlecają moduły Katedry", fontSize = 15.sp)
-                Text("merch → Marketplace, muzyka, bryły 3D, wideo", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(tl("Wkłady same zlecają moduły Katedry"), fontSize = 15.sp)
+                Text(tl("merch → Marketplace, muzyka, bryły 3D, wideo"), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Switch(checked = samoZlecanie, onCheckedChange = { samoZlecanie = it }, enabled = !zakladanie)
         }
         WyborWarsztatu(warsztat, zakladanie, zPetla = true) { warsztat = it }
         Button(onClick = { onZaloz(projekt) }, enabled = !zakladanie && brak == null, modifier = Modifier.fillMaxWidth()) {
-            Text(if (zakladanie) "Wysyłam do Katedry…" else "Zacznijcie razem")
+            Text(if (zakladanie) tl("Wysyłam do Katedry…") else tl("Zacznijcie razem"))
         }
         brak?.let { Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         blad?.let { Text("⚠️ $it", fontSize = 13.sp, color = Color(0xFFDC2626)) }

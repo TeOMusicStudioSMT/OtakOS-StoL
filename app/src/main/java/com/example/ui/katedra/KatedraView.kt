@@ -49,6 +49,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.most.Gatunek
 import com.example.most.ileTemu
+import com.example.ui.tlumacz.WyborJezyka
+import com.example.ui.tlumacz.tl
 
 /**
  * 🏛️ Katedra na żywo — co robią TeOgochi Twojej lokalnej Katedry.
@@ -90,7 +92,7 @@ fun KatedraView(viewModel: KatedraViewModel, modifier: Modifier = Modifier) {
     swiat?.let { adres ->
         BackHandler { swiat = null }
         Column(modifier.fillMaxSize()) {
-            TextButton(onClick = { swiat = null }, modifier = Modifier.padding(horizontal = 8.dp)) { Text("← Lista stada") }
+            TextButton(onClick = { swiat = null }, modifier = Modifier.padding(horizontal = 8.dp)) { Text(tl("← Lista stada")) }
             // weight, nie fillMaxSize: pod przyciskiem zostaje tyle, ile jest — inaczej WebView wystaje
             // pod dolny pasek, a dół szuflady katalogu (i pasek filmu) ląduje poza ekranem.
             SwiatKlockow(adres, Modifier.fillMaxWidth().weight(1f))
@@ -106,10 +108,10 @@ fun KatedraView(viewModel: KatedraViewModel, modifier: Modifier = Modifier) {
         item {
             Column(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Katedra na żywo", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                    Text(tl("Katedra na żywo"), fontSize = 22.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.width(10.dp))
                     Text(
-                        if (ui.naZywo) "● na żywo" else "○ łączę…",
+                        if (ui.naZywo) tl("● na żywo") else tl("○ łączę…"),
                         fontSize = 12.sp,
                         color = if (ui.naZywo) Color(0xFF16A34A) else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -133,8 +135,9 @@ fun KatedraView(viewModel: KatedraViewModel, modifier: Modifier = Modifier) {
                 )
                 ui.blad?.let { Text("⚠️ $it", fontSize = 12.sp, color = Color(0xFFDC2626)) }
                 OutlinedButton(onClick = { swiat = viewModel.adresSwiata() }, modifier = Modifier.padding(top = 6.dp)) {
-                    Text("🧱 Świat klocków")
+                    Text(tl("🧱 Świat klocków"))
                 }
+                WyborJezyka(Modifier.padding(top = 2.dp))
             }
         }
 
@@ -155,22 +158,22 @@ fun KatedraView(viewModel: KatedraViewModel, modifier: Modifier = Modifier) {
         item {
             Column(Modifier.padding(top = 10.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("🧩 Wspólne projekty", fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                    OutlinedButton(onClick = { formularz = true }, enabled = wyklute.size >= 2) { Text("＋ Nowy projekt") }
+                    Text(tl("🧩 Wspólne projekty"), fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                    OutlinedButton(onClick = { formularz = true }, enabled = wyklute.size >= 2) { Text(tl("＋ Nowy projekt")) }
                 }
                 if (wyklute.size < 2) {
-                    Text("Wspólny projekt potrzebuje co najmniej dwóch wyklutych TeOgochi.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(tl("Wspólny projekt potrzebuje co najmniej dwóch wyklutych TeOgochi."), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
         if (ui.projekty.isEmpty()) {
-            item { Text("Jeszcze żadnego projektu.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            item { Text(tl("Jeszcze żadnego projektu."), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
         items(ui.projekty.take(8), key = { "projekt-${it.id}" }) { KartaProjektu(it) }
 
         val aktywnosc = stan?.aktywnosc.orEmpty().take(12)
         if (aktywnosc.isNotEmpty()) {
-            item { Text("Ostatnie ślady na szynie", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp)) }
+            item { Text(tl("Ostatnie ślady na szynie"), fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp)) }
             items(aktywnosc, key = { "${it.kto}-${it.ts}" }) { a ->
                 Text("• ${a.kto}: ${a.tresc ?: a.rodzaj ?: "…"}", fontSize = 13.sp)
             }
@@ -178,7 +181,7 @@ fun KatedraView(viewModel: KatedraViewModel, modifier: Modifier = Modifier) {
 
         item {
             TextButton(onClick = viewModel::rozparuj, modifier = Modifier.padding(vertical = 16.dp)) {
-                Text("Odłącz ten telefon od Katedry")
+                Text(tl("Odłącz ten telefon od Katedry"))
             }
         }
     }
@@ -259,7 +262,7 @@ private fun Parowanie(blad: String?, pracuje: Boolean, onSparuj: (String) -> Uni
         modifier = modifier.fillMaxSize().padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
     ) {
-        Text("Połącz StoL z Katedrą", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        Text(tl("Połącz StoL z Katedrą"), fontSize = 22.sp, fontWeight = FontWeight.Bold)
         Text(
             "W Katedrze na komputerze otwórz Dashboard → karta „StoL” → „Paruj telefon” i zeskanuj QR przyciskiem niżej. " +
                 "Możesz też skopiować link i wkleić go tutaj. Kod działa 5 minut i tylko raz.",
@@ -277,21 +280,22 @@ private fun Parowanie(blad: String?, pracuje: Boolean, onSparuj: (String) -> Uni
             },
             enabled = !pracuje,
             modifier = Modifier.fillMaxWidth(),
-        ) { Text("📷 Skanuj QR z Katedry", fontSize = 16.sp) }
-        Text("albo wklej link:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        ) { Text(tl("📷 Skanuj QR z Katedry"), fontSize = 16.sp) }
+        Text(tl("albo wklej link:"), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         OutlinedTextField(
             value = link,
             onValueChange = { link = it },
-            label = { Text("link parowania z Katedry") },
+            label = { Text(tl("link parowania z Katedry")) },
             singleLine = false,
             modifier = Modifier.fillMaxWidth(),
         )
         OutlinedButton(onClick = { onSparuj(link) }, enabled = !pracuje && link.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
-            Text(if (pracuje) "Paruję…" else "Sparuj")
+            Text(if (pracuje) tl("Paruję…") else tl("Sparuj"))
         }
         blad?.let { Text("⚠️ $it", fontSize = 13.sp, color = Color(0xFFDC2626)) }
+        WyborJezyka()
         Text(
-            "StoL patrzy na stado i może zlecić mu nowy wspólny projekt — nic więcej w Katedrze nie zmienia. Odłączyć telefon można tu albo w Katedrze.",
+            tl("StoL patrzy na stado i może zlecić mu nowy wspólny projekt — nic więcej w Katedrze nie zmienia. Odłączyć telefon można tu albo w Katedrze."),
             fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }

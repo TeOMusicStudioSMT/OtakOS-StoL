@@ -79,6 +79,7 @@ import com.example.ui.stol.StolViewModel
 import com.example.ui.stol.TostKontakty
 import com.example.ui.stol.TostWatek
 import kotlinx.coroutines.delay
+import com.example.ui.tlumacz.tl
 
 /**
  * StoL: Stół ratyfikacji Katedry na marmurze z AI Studio — ale na prawdziwych danych z mostu.
@@ -155,7 +156,7 @@ fun StolApp(
                     ExtendedFloatingActionButton(
                         onClick = { viewModel.pokazFormularz(true) },
                         icon = { Icon(imageVector = Icons.Default.Add, contentDescription = null) },
-                        text = { Text("Połóż na stół", fontWeight = FontWeight.Bold) },
+                        text = { Text(tl("Połóż na stół"), fontWeight = FontWeight.Bold) },
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = Color.White,
                         modifier = Modifier.testTag("fab_poloz_na_stol")
@@ -257,13 +258,13 @@ private fun NaglowekStolu(karty: List<KartaStolu>, glos: Boolean, onGlos: () -> 
                         .background(Brush.radialGradient(listOf(Color(0xFF38BDF8), Color(0xFF0284C7), Color(0xFF0F172A))))
                         .border(1.8.dp, Color(0xFFFBBF24), CircleShape)
                 ) {
-                    Text("S", fontSize = 21.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                    Text(tl("S"), fontSize = 21.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
                 }
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("StoL", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp))
+                    Text(tl("StoL"), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp))
                     Text(
-                        "Stół ratyfikacji Katedry OtakOS",
+                        tl("Stół ratyfikacji Katedry OtakOS"),
                         style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -276,7 +277,7 @@ private fun NaglowekStolu(karty: List<KartaStolu>, glos: Boolean, onGlos: () -> 
                     )
                 }
                 IconButton(onClick = onOswietlenie) {
-                    Icon(Icons.Default.AutoAwesome, contentDescription = "Światło stołu", tint = MaterialTheme.colorScheme.primary)
+                    Icon(Icons.Default.AutoAwesome, contentDescription = tl("Światło stołu"), tint = MaterialTheme.colorScheme.primary)
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 8.dp)) {
@@ -297,7 +298,7 @@ private fun Licznik(etykieta: String, ile: Int, kolor: Color, modifier: Modifier
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(etykieta, style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = kolor)
+            Text(tl(etykieta), style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = kolor)
             Text("$ile", style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, fontWeight = FontWeight.Bold), color = kolor)
         }
     }
@@ -315,39 +316,39 @@ private fun PasekZakladek(wybrana: Int, czeka: Int, tostNowe: Int, onWybierz: (I
     ) {
         NavigationBarItem(
             selected = wybrana == 0, onClick = { onWybierz(0) },
-            icon = { Icon(Icons.Default.TableRestaurant, contentDescription = "Stół") },
-            label = { Text("Stół", fontSize = 11.sp) }, modifier = Modifier.testTag("nav_tab_table")
+            icon = { Icon(Icons.Default.TableRestaurant, contentDescription = tl("Stół")) },
+            label = { Text(tl("Stół"), fontSize = 11.sp) }, modifier = Modifier.testTag("nav_tab_table")
         )
         NavigationBarItem(
             selected = wybrana == 1, onClick = { onWybierz(1) },
             icon = {
-                if (czeka > 0) BadgedBox(badge = { Badge { Text("$czeka") } }) { Icon(Icons.Default.Verified, contentDescription = "Izba Akceptacji") }
-                else Icon(Icons.Default.Verified, contentDescription = "Izba Akceptacji")
+                if (czeka > 0) BadgedBox(badge = { Badge { Text("$czeka") } }) { Icon(Icons.Default.Verified, contentDescription = tl("Izba Akceptacji")) }
+                else Icon(Icons.Default.Verified, contentDescription = tl("Izba Akceptacji"))
             },
-            label = { Text("Izba", fontSize = 11.sp) }, modifier = Modifier.testTag("nav_tab_ratification")
+            label = { Text(tl("Izba"), fontSize = 11.sp) }, modifier = Modifier.testTag("nav_tab_ratification")
         )
         NavigationBarItem(
             selected = wybrana == 2, onClick = { onWybierz(2) },
-            icon = { Icon(Icons.Default.History, contentDescription = "Historia") },
-            label = { Text("Historia", fontSize = 11.sp) }, modifier = Modifier.testTag("nav_tab_history")
+            icon = { Icon(Icons.Default.History, contentDescription = tl("Historia")) },
+            label = { Text(tl("Historia"), fontSize = 11.sp) }, modifier = Modifier.testTag("nav_tab_history")
         )
         NavigationBarItem(
             selected = wybrana == 3, onClick = { onWybierz(3) },
-            icon = { Icon(Icons.Default.Psychology, contentDescription = "Agenci") },
-            label = { Text("Agenci", fontSize = 11.sp) }, modifier = Modifier.testTag("nav_tab_agents")
+            icon = { Icon(Icons.Default.Psychology, contentDescription = tl("Agenci")) },
+            label = { Text(tl("Agenci"), fontSize = 11.sp) }, modifier = Modifier.testTag("nav_tab_agents")
         )
         NavigationBarItem(
             selected = wybrana == 4, onClick = { onWybierz(4) },
-            icon = { Icon(Icons.Default.AccountBalance, contentDescription = "Katedra") },
-            label = { Text("Katedra", fontSize = 11.sp) }, modifier = Modifier.testTag("nav_tab_katedra")
+            icon = { Icon(Icons.Default.AccountBalance, contentDescription = tl("Katedra")) },
+            label = { Text(tl("Katedra"), fontSize = 11.sp) }, modifier = Modifier.testTag("nav_tab_katedra")
         )
         NavigationBarItem(
             selected = wybrana == 5, onClick = { onWybierz(5) },
             icon = {
-                if (tostNowe > 0) BadgedBox(badge = { Badge { Text("$tostNowe") } }) { Icon(Icons.Default.Forum, contentDescription = "TOST") }
-                else Icon(Icons.Default.Forum, contentDescription = "TOST")
+                if (tostNowe > 0) BadgedBox(badge = { Badge { Text("$tostNowe") } }) { Icon(Icons.Default.Forum, contentDescription = tl("TOST")) }
+                else Icon(Icons.Default.Forum, contentDescription = tl("TOST"))
             },
-            label = { Text("TOST", fontSize = 11.sp) }, modifier = Modifier.testTag("nav_tab_tost")
+            label = { Text(tl("TOST"), fontSize = 11.sp) }, modifier = Modifier.testTag("nav_tab_tost")
         )
     }
 }

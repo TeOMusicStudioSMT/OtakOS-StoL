@@ -45,6 +45,7 @@ import com.example.most.PamiecKatedry
 import com.example.most.ProcesKatedry
 import com.example.most.Rozmowca
 import com.example.most.RozmowaUi
+import com.example.ui.tlumacz.tl
 
 /*
  * 🕊️ Delegat w StoL-u: rozmowa z dowolnym TeOgochi i pamięć Katedry.
@@ -60,14 +61,14 @@ fun DelegatPasek(rozmowcy: List<Rozmowca>, onRozmowa: (Rozmowca) -> Unit, onPami
     Marmur(akcent = Color(0xFF7C3AED)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("💬 Porozmawiaj z TeOgochi", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                Text(tl("💬 Porozmawiaj z TeOgochi"), fontWeight = FontWeight.Bold, fontSize = 15.sp)
                 Text(
                     if (rozmowcy.isEmpty()) "Most nie podał jeszcze rozmówców — zaktualizuj Katedrę albo poczekaj na odświeżenie."
                     else "Delegat: każdy zna projekty, Stół i pamięć Katedry. Pełne profile mają też swoje narzędzia.",
                     fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            OutlinedButton(onClick = onPamiec, modifier = Modifier.testTag("btn_pamiec_katedry")) { Text("🧠 Pamięć") }
+            OutlinedButton(onClick = onPamiec, modifier = Modifier.testTag("btn_pamiec_katedry")) { Text(tl("🧠 Pamięć")) }
         }
         if (rozmowcy.isNotEmpty()) {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(top = 8.dp)) {
@@ -98,7 +99,7 @@ fun RozmowaDelegata(
     }
     Column(Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onZamknij) { Text("← Agenci") }
+            TextButton(onClick = onZamknij) { Text(tl("← Agenci")) }
             Spacer(Modifier.width(4.dp))
             Column(Modifier.weight(1f)) {
                 Text("${rozmowa.z.emoji} ${rozmowa.z.imie}", fontWeight = FontWeight.Bold, fontSize = 17.sp)
@@ -116,13 +117,13 @@ fun RozmowaDelegata(
         Row(verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(
                 value = tekst, onValueChange = { tekst = it }, modifier = Modifier.weight(1f).testTag("pole_rozmowy"),
-                placeholder = { Text("Twoja wiadomość…") }, maxLines = 4, enabled = !rozmowa.mysli,
+                placeholder = { Text(tl("Twoja wiadomość…")) }, maxLines = 4, enabled = !rozmowa.mysli,
             )
             Spacer(Modifier.width(8.dp))
             Button(
                 onClick = { onWyslij(tekst); tekst = "" }, enabled = tekst.isNotBlank() && !rozmowa.mysli,
                 modifier = Modifier.testTag("btn_wyslij_rozmowe"),
-            ) { Text("Wyślij") }
+            ) { Text(tl("Wyślij")) }
         }
     }
 }
@@ -159,17 +160,17 @@ fun NaradaPrzyKarcie(
     Marmur(akcent = Color(0xFF7C3AED)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("💬 Narada przy karcie", fontWeight = FontWeight.SemiBold)
+                Text(tl("💬 Narada przy karcie"), fontWeight = FontWeight.SemiBold)
                 Text(
                     if (tu == null) "Zapytaj TeOgochi o tę kartę — zna jej etap, oceny Sędziego, braki i Biblię. Decyzja zostaje Twoja."
                     else "${tu.z.emoji} ${tu.z.imie} zna tę kartę. Decyzja zostaje przy przyciskach.",
                     fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            if (tu != null) TextButton(onClick = onZamknij, enabled = !tu.mysli) { Text("Zakończ") }
+            if (tu != null) TextButton(onClick = onZamknij, enabled = !tu.mysli) { Text(tl("Zakończ")) }
         }
         if (rozmowcy.isEmpty()) {
-            Text("Most nie podał jeszcze rozmówców — poczekaj na odświeżenie.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(tl("Most nie podał jeszcze rozmówców — poczekaj na odświeżenie."), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(top = 6.dp)) {
                 items(rozmowcy, key = { it.id }) { r ->
@@ -184,7 +185,7 @@ fun NaradaPrzyKarcie(
         if (tu != null) {
             Column(Modifier.fillMaxWidth().padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (tu.wypowiedzi.isEmpty() && !tu.mysli) Text(
-                    "Np. „czego brakuje do 9/10?”, „czy ratyfikować?”, „co zrobi stado po przyjęciu?”.",
+                    tl("Np. „czego brakuje do 9/10?”, „czy ratyfikować?”, „co zrobi stado po przyjęciu?”."),
                     fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 tu.wypowiedzi.forEach { w -> Dymek(w.kto == "suweren", w.tekst) }
@@ -193,13 +194,13 @@ fun NaradaPrzyKarcie(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(
                         value = tekst, onValueChange = { tekst = it }, modifier = Modifier.weight(1f).testTag("pole_narady"),
-                        placeholder = { Text("Pytanie o tę kartę…") }, maxLines = 4, enabled = !tu.mysli,
+                        placeholder = { Text(tl("Pytanie o tę kartę…")) }, maxLines = 4, enabled = !tu.mysli,
                     )
                     Spacer(Modifier.width(8.dp))
                     Button(
                         onClick = { onWyslij(tekst); tekst = "" }, enabled = tekst.isNotBlank() && !tu.mysli,
                         modifier = Modifier.testTag("btn_wyslij_narade"),
-                    ) { Text("Wyślij") }
+                    ) { Text(tl("Wyślij")) }
                 }
             }
         }
@@ -223,13 +224,13 @@ fun PamiecKatedryEkran(
     LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = onWroc) { Text("← Agenci") }
+                TextButton(onClick = onWroc) { Text(tl("← Agenci")) }
                 Spacer(Modifier.weight(1f))
-                OutlinedButton(onClick = onOdswiez, enabled = !wczytuje) { Text(if (wczytuje) "⟳ …" else "↻ Odśwież") }
+                OutlinedButton(onClick = onOdswiez, enabled = !wczytuje) { Text(if (wczytuje) tl("⟳ …") else tl("↻ Odśwież")) }
             }
-            Text("🧠 Pamięć Katedry", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            Text(tl("🧠 Pamięć Katedry"), fontWeight = FontWeight.Bold, fontSize = 20.sp)
             if (pamiec != null) Text("Wolne ${pamiec.wolneGB} GB z ${pamiec.razemGB} GB", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-            Text("„Memory Compression” to RAM ściśnięty przez Windows — nie zamyka się go; zmaleje sam, gdy zamkniesz to, co pamięć zjada.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(tl("„Memory Compression” to RAM ściśnięty przez Windows — nie zamyka się go; zmaleje sam, gdy zamkniesz to, co pamięć zjada."), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             blad?.let { Text(it, color = Color(0xFFDC2626), fontSize = 12.sp) }
             pamiec?.blad?.let { Text(it, color = Color(0xFFD97706), fontSize = 12.sp) }
         }
@@ -245,7 +246,7 @@ fun PamiecKatedryEkran(
                     }
                     Column(horizontalAlignment = Alignment.End) {
                         Text("${p.mb} MB", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                        if (!p.chroniony) TextButton(onClick = { doZamkniecia = p }, enabled = !wczytuje, modifier = Modifier.testTag("btn_zamknij_${p.pid}")) { Text("Zamknij") }
+                        if (!p.chroniony) TextButton(onClick = { doZamkniecia = p }, enabled = !wczytuje, modifier = Modifier.testTag("btn_zamknij_${p.pid}")) { Text(tl("Zamknij")) }
                     }
                 }
             }
@@ -256,8 +257,8 @@ fun PamiecKatedryEkran(
             onDismissRequest = { doZamkniecia = null },
             title = { Text("Zamknąć ${p.nazwa} #${p.pid}?") },
             text = { Text(listOfNotNull(p.opis.takeIf { it.isNotBlank() }, p.uwaga, "Niezapisana praca w tym programie przepadnie.").joinToString("\n")) },
-            confirmButton = { Button(onClick = { onZamknijProces(p.pid); doZamkniecia = null }) { Text("Zamknij") } },
-            dismissButton = { TextButton(onClick = { doZamkniecia = null }) { Text("Zostaw") } },
+            confirmButton = { Button(onClick = { onZamknijProces(p.pid); doZamkniecia = null }) { Text(tl("Zamknij")) } },
+            dismissButton = { TextButton(onClick = { doZamkniecia = null }) { Text(tl("Zostaw")) } },
         )
     }
 }

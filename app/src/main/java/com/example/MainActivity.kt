@@ -14,6 +14,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ui.StolApp
 import com.example.ui.katedra.KatedraViewModel
 import com.example.ui.stol.StolViewModel
+import com.example.ui.tlumacz.TlumaczStoL
 import com.example.ui.theme.MyApplicationTheme
 
 class MainActivity : ComponentActivity() {
@@ -25,6 +26,7 @@ class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()
+    TlumaczStoL.start(this)   // 🌍 język StoL-a i słownik z pamięci telefonu, zanim narysuje się pierwszy ekran
     if (savedInstanceState == null) obsluzLink(intent)
     setContent {
       MyApplicationTheme {
