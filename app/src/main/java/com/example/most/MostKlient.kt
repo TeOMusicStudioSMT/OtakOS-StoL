@@ -26,8 +26,11 @@ class MostKlient(
 ) {
     sealed class Wynik<out T> {
         data class Ok<T>(val wartosc: T) : Wynik<T>()
-        /** Opis po polsku, gotowy do pokazania Suwerenowi. `rozparowany` = token już nie działa. */
-        data class Blad(val opis: String, val rozparowany: Boolean = false) : Wynik<Nothing>()
+        /**
+         * Opis po polsku, gotowy do pokazania Suwerenowi. `rozparowany` = token już nie działa.
+         * `milczy` = pod tym adresem nikogo nie ma (sieć, tunel zgasł) — wtedy StoL pyta rejestr o nowy adres (most/Odnajdywanie.kt).
+         */
+        data class Blad(val opis: String, val rozparowany: Boolean = false, val milczy: Boolean = false) : Wynik<Nothing>()
     }
 
     fun paruj(kod: String, nazwaUrzadzenia: String): Wynik<String> {
@@ -36,6 +39,12 @@ class MostKlient(
             m.napis("token") ?: throw IOException("Most nie oddał tokenu.")
         }
     }
+
+    /** Nick i klucz wizytówki tej Katedry (`GET /api/wizytowka`) — zapamiętane przy parowaniu, żeby ją potem odnaleźć. */
+    fun wizytowka(): Wynik<TozsamoscKatedry> =
+        zapytaj("GET", "/api/wizytowka", null, emptyMap()) { m ->
+            TozsamoscKatedry.zJson(m) ?: throw IOException("Wizytówka Katedry nie ma nicka albo klucza.")
+        }
 
     fun stan(token: String): Wynik<StanStada> =
         zapytaj("GET", "/api/stado/stan", null, mapOf("X-Stado-Token" to token)) { StanStada.zJson(it) }
@@ -243,7 +252,7 @@ class MostKlient(
             }
             rozparowany ?: Wynik.Ok(Unit)
         } catch (e: IOException) {
-            Wynik.Blad("Strumień zerwany (${e.message ?: e.javaClass.simpleName}).")
+            Wynik.Blad("Strumień zerwany (${e.message ?: e.javaClass.simpleName}).", milczy = true)
         } finally {
             c.disconnect()
         }
@@ -277,7 +286,7 @@ class MostKlient(
                 opiszBlad(kod, json, tekst)
             }
         } catch (e: IOException) {
-            Wynik.Blad("Most milczy (${e.message ?: e.javaClass.simpleName}). Czy tunel w Katedrze działa?")
+            Wynik.Blad("Most milczy (${e.message ?: e.javaClass.simpleName}). Czy tunel w Katedrze działa?", milczy = true)
         } catch (e: Json.BladJson) {
             Wynik.Blad("Most odpowiedział czymś, co nie jest JSON-em: ${e.message}")
         } finally {
@@ -295,6 +304,8 @@ class MostKlient(
                 Wynik.Blad("Ten most nie przyjmuje tego z telefonu — zaktualizuj Katedrę albo zrób to przy maszynie.")
             kod == 403 -> Wynik.Blad(msg ?: "Most odmówił (403).")
             kod == 404 && tekst.contains("Cannot") -> Wynik.Blad("Ten most nie zna trasy StoL-a — zaktualizuj Katedrę.")
+            Odnajdywanie.adresMilczy(kod, json != null) ->
+                Wynik.Blad(msg ?: "Pod tym adresem Katedra nie odpowiada (HTTP $kod — tunel zgasł albo zmienił adres).", milczy = true)
             else -> Wynik.Blad(msg ?: "Most odpowiedział HTTP $kod.")
         }
     }

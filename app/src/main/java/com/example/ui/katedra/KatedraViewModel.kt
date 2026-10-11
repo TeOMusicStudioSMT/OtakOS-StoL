@@ -7,6 +7,8 @@ import androidx.lifecycle.viewModelScope
 import com.example.most.LinkParowania
 import com.example.most.MostKlient
 import com.example.most.NowyProjekt
+import com.example.most.Odnajdywanie
+import com.example.most.ZrodloAdresu
 import com.example.most.ProjektStada
 import com.example.most.StanStada
 import kotlinx.coroutines.Dispatchers
@@ -29,6 +31,14 @@ import kotlinx.coroutines.withContext
 data class KatedraUiState(
     val sparowany: Boolean = false,
     val adres: String? = null,
+    /** Skąd jest adres w użyciu: parowanie albo rejestr otakos.wtf (po zmianie tunelu). */
+    val zrodlo: ZrodloAdresu? = null,
+    /** Nick Katedry z wizytówki — po nim StoL ją odnajduje; null = stare parowanie albo Katedra bez wizytówki. */
+    val nick: String? = null,
+    /** 🔄 Trwa pytanie rejestru o adres Katedry. */
+    val szukam: Boolean = false,
+    /** Wynik ostatniego odnajdywania, jednym zdaniem. */
+    val odnajdywanie: String? = null,
     val stan: StanStada? = null,
     val blad: String? = null,
     val pracuje: Boolean = false,
@@ -51,8 +61,14 @@ class KatedraViewModel(application: Application) : AndroidViewModel(application)
     @Volatile private var polaczenie: HttpURLConnection? = null
     private var odswiezanieProjektow: Job? = null
 
+    /** Kiedy (ms) ostatnio pytaliśmy rejestr sami — przy zerwanym strumieniu nie częściej niż co minutę. */
+    @Volatile private var ostatnieSzukanie = 0L
+    @Volatile private var szukanieTrwa = false
+    /** Tożsamość starego parowania dociągamy raz na uruchomienie, gdy adres jeszcze żyje. */
+    @Volatile private var tozsamoscSprawdzona = false
+
     init {
-        store.wczytaj()?.let { _ui.value = KatedraUiState(sparowany = true, adres = it.adres) }
+        store.wczytaj()?.let { _ui.value = KatedraUiState(sparowany = true, adres = it.adres, zrodlo = it.zrodlo, nick = it.tozsamosc?.nick) }
     }
 
     /** Link z QR / schowka / intencji `otakos-stol://paruj?…`. */
@@ -68,8 +84,15 @@ class KatedraViewModel(application: Application) : AndroidViewModel(application)
             val wynik = withContext(Dispatchers.IO) { MostKlient(link.adres, link.klucz).paruj(link.kod, nazwa) }
             when (wynik) {
                 is MostKlient.Wynik.Ok -> {
-                    store.zapisz(Polaczenie(link.adres, link.klucz, wynik.wartosc))
-                    _ui.value = KatedraUiState(sparowany = true, adres = link.adres, pracuje = true)
+                    // Nick i klucz wizytówki — żeby odnaleźć Katedrę, gdy tunel zmieni adres. Brak wizytówki nie psuje parowania.
+                    val tozsamosc = withContext(Dispatchers.IO) { MostKlient(link.adres, link.klucz).wizytowka() }
+                        .let { (it as? MostKlient.Wynik.Ok)?.wartosc }
+                    store.zapisz(Polaczenie(link.adres, link.klucz, wynik.wartosc, tozsamosc, ZrodloAdresu.PAROWANIE))
+                    tozsamoscSprawdzona = true
+                    _ui.value = KatedraUiState(
+                        sparowany = true, adres = link.adres, zrodlo = ZrodloAdresu.PAROWANIE, nick = tozsamosc?.nick, pracuje = true,
+                        odnajdywanie = if (tozsamosc == null) "Katedra nie ma jeszcze wizytówki (nicka) — gdy tunel zmieni adres, trzeba będzie sparować ponownie." else null,
+                    )
                     zacznijObserwacje()
                 }
                 is MostKlient.Wynik.Blad -> {
@@ -93,6 +116,64 @@ class KatedraViewModel(application: Application) : AndroidViewModel(application)
                     } else _ui.value.copy(blad = wynik.opis, pracuje = false)   // stary stan zostaje, z ostrzeżeniem
                 }
             }
+            if (wynik is MostKlient.Wynik.Blad && wynik.milczy) znajdzKatedre()
+        }
+    }
+
+    /**
+     * 🔄 Znajdź Katedrę: rejestr otakos.wtf → adres po nicku → wizytówka z tym samym nickiem i kluczem → zapis.
+     * Klucz Straży i token zostają te same. Po zmianie adresu strumień rusza od nowa pod nowym adresem.
+     */
+    fun znajdzKatedre() {
+        viewModelScope.launch(Dispatchers.IO) {
+            if (szukajNowegoAdresu() && obserwacja?.isActive == true) {
+                zatrzymajObserwacje()
+                zacznijObserwacje()
+            }
+        }
+    }
+
+    /** Pyta rejestr; true = zapisany nowy, sprawdzony adres. Wołać z wątku w tle. */
+    private fun szukajNowegoAdresu(): Boolean {
+        if (szukanieTrwa) return false
+        val p = store.wczytaj() ?: return false
+        szukanieTrwa = true
+        ostatnieSzukanie = System.currentTimeMillis()
+        _ui.update { it.copy(szukam = true) }
+        try {
+            return when (val w = Odnajdywanie.znajdz(p.tozsamosc, p.adres)) {
+                is Odnajdywanie.Wynik.Znaleziony -> {
+                    if (w.zmieniony) {
+                        store.zapisz(p.copy(adres = w.adres, zrodlo = ZrodloAdresu.REJESTR))
+                        _ui.update { it.copy(adres = w.adres, zrodlo = ZrodloAdresu.REJESTR, odnajdywanie = "Nowy adres z rejestru, sprawdzony wizytówką „${p.tozsamosc?.nick}”.") }
+                    } else {
+                        _ui.update { it.copy(odnajdywanie = "Rejestr podaje ten sam adres — Katedra się melduje, więc chwilowo nie odpowiada. Spróbuję jeszcze raz.") }
+                    }
+                    w.zmieniony
+                }
+                is Odnajdywanie.Wynik.Nie -> {
+                    _ui.update { it.copy(odnajdywanie = w.opis) }
+                    false
+                }
+            }
+        } finally {
+            szukanieTrwa = false
+            _ui.update { it.copy(szukam = false) }
+        }
+    }
+
+    /** Stare parowanie (bez nicka) przy żywym adresie: dociągnij nick i klucz wizytówki z TEJ Katedry. */
+    private fun uzupelnijTozsamosc() {
+        if (tozsamoscSprawdzona) return
+        tozsamoscSprawdzona = true
+        viewModelScope.launch(Dispatchers.IO) {
+            val p = store.wczytaj() ?: return@launch
+            if (p.tozsamosc != null) return@launch
+            val w = MostKlient(p.adres, p.klucz).wizytowka()
+            if (w is MostKlient.Wynik.Ok) {
+                store.zapisz(p.copy(tozsamosc = w.wartosc))
+                _ui.update { it.copy(nick = w.wartosc.nick) }
+            }
         }
     }
 
@@ -110,7 +191,7 @@ class KatedraViewModel(application: Application) : AndroidViewModel(application)
                 val wynik = MostKlient(p.adres, p.klucz).strumien(
                     token = p.token,
                     naStan = { s ->
-                        if (!_ui.value.naZywo) wczytajProjekty()   // po (ponownym) połączeniu — mogło się coś zmienić
+                        if (!_ui.value.naZywo) { wczytajProjekty(); uzupelnijTozsamosc() }   // po (ponownym) połączeniu — mogło się coś zmienić
                         przerwa = 2_000L
                         _ui.update { it.copy(stan = s, blad = null, pracuje = false, naZywo = true, odczytano = System.currentTimeMillis()) }
                     },
@@ -127,6 +208,10 @@ class KatedraViewModel(application: Application) : AndroidViewModel(application)
                     store.zapomnij()
                     _ui.value = KatedraUiState(blad = wynik.opis)
                     break
+                }
+                // Adres milczy (tunel zgasł / zmienił adres) → zapytaj rejestr, nie częściej niż co minutę.
+                if (wynik is MostKlient.Wynik.Blad && wynik.milczy && System.currentTimeMillis() - ostatnieSzukanie > 60_000L) {
+                    if (szukajNowegoAdresu()) { przerwa = 2_000L; continue }   // nowy adres — od razu pod niego
                 }
                 val opis = (wynik as? MostKlient.Wynik.Blad)?.opis ?: "Most zamknął strumień."
                 _ui.update { it.copy(naZywo = false, pracuje = false, blad = "$opis Łączę ponownie za ${przerwa / 1000} s…") }

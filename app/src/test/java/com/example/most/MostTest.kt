@@ -388,3 +388,115 @@ class PublikacjeYouTubeTest {
         assertEquals("https://youtu.be/abcdefghijk", l[1].url)
     }
 }
+
+/** 🔄 Odnajdywanie Katedry po zmianie adresu tunelu (most/Odnajdywanie.kt) — rejestr otakos.wtf podmieniony atrapą. */
+@Suppress("UNCHECKED_CAST")
+class OdnajdywanieTest {
+    private val kluczW = "MCowBQYDK2VwAyEA" + "x".repeat(40)
+    private val ja = TozsamoscKatedry("teo-mas", kluczW)
+    private val rejestr = "https://otakos.wtf"
+
+    /** Kształt jak w OtakOS-DeeP server/serwer.mjs: GET /api/katedry → { katedry: [{ nick, adres, motto, klucz, widziano }] }. */
+    private fun listaRejestru(vararg wpisy: Triple<String, String, String>) =
+        """{"katedry":[${wpisy.joinToString(",") { (n, a, k) -> """{"nick":"$n","adres":"$a","motto":"","klucz":"$k","widziano":"2026-10-11T10:00:00Z"}""" }}]}"""
+
+    private fun wizytowka(nick: String, klucz: String) = """{"wersja":1,"nick":"$nick","motto":"","klucz":"$klucz","wystawa":{}}"""
+
+    private class Atrapa(val odpowiedzi: Map<String, Odnajdywanie.Odpowiedz>) {
+        val pytania = mutableListOf<String>()
+        fun pobierz(url: String): Odnajdywanie.Odpowiedz {
+            pytania += url
+            return odpowiedzi[url] ?: throw java.io.IOException("brak hosta $url")
+        }
+    }
+
+    @Test fun znajdujeNowyAdresISprawdzaWizytowke() {
+        val a = Atrapa(mapOf(
+            "$rejestr/api/katedry" to Odnajdywanie.Odpowiedz(200, listaRejestru(
+                Triple("inna", "https://inna.trycloudflare.com", "k".repeat(44)),
+                Triple("teo-mas", "https://katedra.otakos.wtf/", kluczW),
+            )),
+            "https://katedra.otakos.wtf/api/wizytowka" to Odnajdywanie.Odpowiedz(200, wizytowka("teo-mas", kluczW)),
+        ))
+        val w = Odnajdywanie.znajdz(ja, "https://stare-lodzie.trycloudflare.com", rejestr, a::pobierz)
+        assertEquals(Odnajdywanie.Wynik.Znaleziony("https://katedra.otakos.wtf", zmieniony = true), w)
+        // Ani rejestr, ani kandydat nie dostają klucza Straży — atrapa widzi same adresy, bez nagłówków.
+        assertEquals(listOf("$rejestr/api/katedry", "https://katedra.otakos.wtf/api/wizytowka"), a.pytania)
+    }
+
+    @Test fun tenSamAdresToNieZmiana() {
+        val a = Atrapa(mapOf(
+            "$rejestr/api/katedry" to Odnajdywanie.Odpowiedz(200, listaRejestru(Triple("teo-mas", "https://katedra.otakos.wtf", kluczW))),
+            "https://katedra.otakos.wtf/api/wizytowka" to Odnajdywanie.Odpowiedz(200, wizytowka("teo-mas", kluczW)),
+        ))
+        assertEquals(Odnajdywanie.Wynik.Znaleziony("https://katedra.otakos.wtf", zmieniony = false), Odnajdywanie.znajdz(ja, "https://katedra.otakos.wtf/", rejestr, a::pobierz))
+    }
+
+    @Test fun podszycieInnymKluczemOdrzucone() {
+        val a = Atrapa(mapOf(
+            "$rejestr/api/katedry" to Odnajdywanie.Odpowiedz(200, listaRejestru(Triple("teo-mas", "https://zly.trycloudflare.com", kluczW))),
+            "https://zly.trycloudflare.com/api/wizytowka" to Odnajdywanie.Odpowiedz(200, wizytowka("teo-mas", "y".repeat(56))),
+        ))
+        val w = Odnajdywanie.znajdz(ja, "https://stare.trycloudflare.com", rejestr, a::pobierz)
+        assertTrue(w is Odnajdywanie.Wynik.Nie && w.opis.contains("podszycie"))
+    }
+
+    @Test fun innaKatedraPodAdresemOdrzucona() {
+        assertEquals("pod nowym adresem jest inna Katedra („obca”)", Odnajdywanie.sprawdzWizytowke(Json.parsuj(wizytowka("obca", kluczW)) as Map<String, Any?>, ja))
+        assertEquals("pod nowym adresem nie ma wizytówki Katedry", Odnajdywanie.sprawdzWizytowke(null, ja))
+        assertNull(Odnajdywanie.sprawdzWizytowke(Json.parsuj(wizytowka("teo-mas", kluczW)) as Map<String, Any?>, ja))
+    }
+
+    @Test fun rejestrZInnymKluczemPrzyNickuNieDajeAdresu() {
+        val json = Json.parsuj(listaRejestru(Triple("teo-mas", "https://katedra.otakos.wtf", "z".repeat(56)))) as Map<String, Any?>
+        assertNull(Odnajdywanie.adresZRejestru(json, ja))
+    }
+
+    @Test fun tylkoBezpieczneAdresyZRejestru() {
+        assertEquals("https://katedra.otakos.wtf", Odnajdywanie.bezpiecznyAdres("https://Katedra.otakos.wtf/"))
+        assertNull(Odnajdywanie.bezpiecznyAdres("http://katedra.otakos.wtf"))            // bez TLS
+        assertNull(Odnajdywanie.bezpiecznyAdres("https://katedra.otakos.wtf:8443"))      // port
+        assertNull(Odnajdywanie.bezpiecznyAdres("https://katedra.otakos.wtf/zlo"))       // ścieżka
+        assertNull(Odnajdywanie.bezpiecznyAdres("https://192.168.1.5"))                  // IP
+        assertNull(Odnajdywanie.bezpiecznyAdres("https://a@katedra.otakos.wtf"))         // login
+        assertNull(Odnajdywanie.bezpiecznyAdres(null))
+    }
+
+    @Test fun katedraOfflineMowiPowodZRejestru() {
+        val a = Atrapa(mapOf(
+            "$rejestr/api/katedry" to Odnajdywanie.Odpowiedz(200, listaRejestru()),
+            "$rejestr/api/katedry/stan/teo-mas" to Odnajdywanie.Odpowiedz(200, """{"nick":"teo-mas","online":false,"meldunek":{"kiedy":"x","ok":false,"wiadomosc":"Rejestr nie dostał wizytówki"}}"""),
+        ))
+        val w = Odnajdywanie.znajdz(ja, "https://stare.trycloudflare.com", rejestr, a::pobierz)
+        assertTrue(w is Odnajdywanie.Wynik.Nie && w.opis.contains("nie melduje się") && w.opis.contains("Rejestr nie dostał wizytówki"))
+    }
+
+    @Test fun bezNickaKazeSparowacPonownieBezPytaniaSieci() {
+        val a = Atrapa(emptyMap())
+        assertEquals(Odnajdywanie.Wynik.Nie(Odnajdywanie.SPARUJ_PONOWNIE), Odnajdywanie.znajdz(null, "https://stare.trycloudflare.com", rejestr, a::pobierz))
+        assertTrue(a.pytania.isEmpty())
+        assertTrue(Odnajdywanie.SPARUJ_PONOWNIE.contains("sparuj ponownie (QR w Katedrze"))
+    }
+
+    @Test fun rejestrMilczyToBladWprost() {
+        val w = Odnajdywanie.znajdz(ja, "https://stare.trycloudflare.com", rejestr, Atrapa(emptyMap())::pobierz)
+        assertTrue(w is Odnajdywanie.Wynik.Nie && w.opis.startsWith("Rejestr otakos.wtf milczy"))
+    }
+
+    @Test fun ktoreBledyZnaczaMilczenieAdresu() {
+        assertTrue(Odnajdywanie.adresMilczy(null))            // sieć / DNS / timeout
+        assertTrue(Odnajdywanie.adresMilczy(530))             // Cloudflare: tunel zgasł (1033)
+        assertTrue(Odnajdywanie.adresMilczy(502))             // strona błędu Cloudflare, nie JSON
+        assertTrue(!Odnajdywanie.adresMilczy(502, odpowiedzJson = true))   // most sam odpowiedział
+        assertTrue(!Odnajdywanie.adresMilczy(401))
+        assertTrue(!Odnajdywanie.adresMilczy(404))
+    }
+
+    @Test fun tozsamoscZWizytowki() {
+        assertEquals(ja, TozsamoscKatedry.zJson(Json.parsuj(wizytowka("teo-mas", kluczW)) as Map<String, Any?>))
+        assertNull(TozsamoscKatedry.zJson(Json.parsuj(wizytowka("", kluczW)) as Map<String, Any?>))       // Katedra bez nicka
+        assertNull(TozsamoscKatedry.zJson(Json.parsuj(wizytowka("teo-mas", "krotki")) as Map<String, Any?>))
+        assertEquals(ZrodloAdresu.PAROWANIE, ZrodloAdresu.zNazwy(null))
+        assertEquals(ZrodloAdresu.REJESTR, ZrodloAdresu.zNazwy("REJESTR"))
+    }
+}

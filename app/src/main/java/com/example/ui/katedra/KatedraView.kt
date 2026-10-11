@@ -118,7 +118,7 @@ fun KatedraView(viewModel: KatedraViewModel, modifier: Modifier = Modifier) {
                 }
                 Text(
                     buildString {
-                        append(ui.adres?.removePrefix("https://") ?: "")
+                        append(ui.nick ?: ui.adres?.removePrefix("https://") ?: "")
                         stan?.urzadzenie?.let { append(" · ten telefon: $it") }
                     },
                     fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -134,8 +134,20 @@ fun KatedraView(viewModel: KatedraViewModel, modifier: Modifier = Modifier) {
                     color = if (wiek != null && wiek > 3600) Color(0xFFD97706) else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 ui.blad?.let { Text("⚠️ $it", fontSize = 12.sp, color = Color(0xFFDC2626)) }
-                OutlinedButton(onClick = { swiat = viewModel.adresSwiata() }, modifier = Modifier.padding(top = 6.dp)) {
-                    Text(tl("🧱 Świat klocków"))
+                // Adres w użyciu i skąd: parowanie albo rejestr otakos.wtf (tunel zmienił adres — most/Odnajdywanie.kt).
+                Text(
+                    tl("Adres w użyciu") + ": " + (ui.adres ?: "—") + " · " + tl(ui.zrodlo?.opis ?: "z parowania") +
+                        (ui.nick?.let { " · Katedra „$it”" } ?: (" · " + tl("bez nicka (stare parowanie)"))),
+                    fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                ui.odnajdywanie?.let { Text("🔄 $it", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
+                    OutlinedButton(onClick = { swiat = viewModel.adresSwiata() }) {
+                        Text(tl("🧱 Świat klocków"))
+                    }
+                    OutlinedButton(onClick = { viewModel.znajdzKatedre() }, enabled = !ui.szukam) {
+                        Text(if (ui.szukam) tl("🔄 Szukam…") else tl("🔄 Znajdź Katedrę"))
+                    }
                 }
                 WyborJezyka(Modifier.padding(top = 2.dp))
             }
