@@ -203,6 +203,102 @@ class MostKlient(
         return zapytaj("POST", "/api/tlumacz", SlownikTlumacza.cialoZapytania(jezyk, teksty), emptyMap(), limitOdpowiedziMs) { OdpowiedzTlumacza.zJson(it) }
     }
 
+    // ── 📖 Żywa Księga (most/Ksiega.kt) — wpisy Suwerena, słowo i obraz stada, zdjęcie i nagranie z telefonu ──
+
+    fun ksiega(token: String): Wynik<List<WpisKsiegi>> =
+        zapytaj("GET", "/api/zywa-ksiega", null, mapOf("X-Stado-Token" to token), 20_000) { WpisKsiegi.lista(it) }
+
+    /** Nowa Iskra (`POST /api/zywa-ksiega`) — stado zaczyna samo; zdjęcie i nagranie dokłada się potem do jej id. */
+    fun nowyWpis(token: String, tekst: String, publiczny: Boolean): Wynik<WpisKsiegi> {
+        val cialo = WpisKsiegi.cialoNowego(tekst, publiczny) ?: return Wynik.Blad("Iskra: od 1 do ${WpisKsiegi.MAX_TEKSTU} znaków.")
+        return zapytaj("POST", "/api/zywa-ksiega", cialo, mapOf("X-Stado-Token" to token), 30_000) { m ->
+            m.obiekt("wpis")?.let(WpisKsiegi::zJson) ?: throw IOException("Most nie oddał wpisu.")
+        }
+    }
+
+    /** 🌍 dla świata (otakos.wtf) albo 🔒 tylko Katedra (`PUT /api/zywa-ksiega/:id`). */
+    fun ustawPubliczny(token: String, id: String, publiczny: Boolean): Wynik<WpisKsiegi> =
+        zapytaj("PUT", "/api/zywa-ksiega/${sciezkaId(id)}", "{\"publiczny\":$publiczny}", mapOf("X-Stado-Token" to token)) { m ->
+            m.obiekt("wpis")?.let(WpisKsiegi::zJson) ?: throw IOException("Most nie oddał wpisu.")
+        }
+
+    /** ↻ stado jeszcze raz — tylko dodatki, które nie są gotowe (`POST /api/zywa-ksiega/:id/stado`). */
+    fun ponowStadoKsiegi(token: String, id: String): Wynik<Unit> =
+        zapytaj("POST", "/api/zywa-ksiega/${sciezkaId(id)}/stado", "{}", mapOf("X-Stado-Token" to token)) { }
+
+    /**
+     * Zdjęcie albo nagranie do wpisu, strumieniem prosto z galerii (`rodzaj` = "zdjecie" | "nagranie").
+     * Długość znana z góry (fixed-length) — cały film nie musi mieścić się w pamięci telefonu.
+     * Most przelicza wideo ffmpegiem, więc odpowiedź przy filmie potrafi czekać minutę i dłużej.
+     */
+    fun wyslijDoWpisu(
+        token: String, id: String, rodzaj: String, typ: String, dlugosc: Long, dane: java.io.InputStream,
+        limitOdpowiedziMs: Int = 600_000,
+    ): Wynik<WpisKsiegi> {
+        if (rodzaj != "zdjecie" && rodzaj != "nagranie") return Wynik.Blad("Nieznany rodzaj pliku: $rodzaj")
+        val limit = if (rodzaj == "zdjecie") WpisKsiegi.MAX_ZDJECIA_BAJTOW else WpisKsiegi.MAX_NAGRANIA_BAJTOW
+        if (dlugosc <= 0) return Wynik.Blad("Pusty plik.")
+        if (dlugosc > limit) return Wynik.Blad(
+            if (rodzaj == "zdjecie") "Zdjęcie ma ${dlugosc / 1_048_576} MB — do ${limit / 1_048_576} MB."
+            else "Film ma ${dlugosc / 1_048_576} MB — tunel przyjmuje do ${limit / 1_048_576} MB w jednym kawałku. Nagraj krócej albo w niższej jakości."
+        )
+        val c = (URL("$adres/api/zywa-ksiega/${sciezkaId(id)}/$rodzaj").openConnection() as HttpURLConnection)
+        return try {
+            c.requestMethod = "POST"
+            c.connectTimeout = limitMs
+            c.readTimeout = limitOdpowiedziMs
+            c.doOutput = true
+            c.setFixedLengthStreamingMode(dlugosc)
+            c.setRequestProperty("Accept", "application/json")
+            c.setRequestProperty("Content-Type", typ)
+            c.setRequestProperty("x-teo-klucz", klucz)
+            c.setRequestProperty("X-Stado-Token", token)
+            c.outputStream.use { wyj -> dane.use { it.copyTo(wyj, 64 * 1024) } }
+            val kod = c.responseCode
+            val tekst = (if (kod in 200..299) c.inputStream else c.errorStream)
+                ?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+            @Suppress("UNCHECKED_CAST")
+            val json = runCatching { Json.parsuj(tekst) as? Map<String, Any?> }.getOrNull()
+            val wpis = json?.obiekt("wpis")?.let(WpisKsiegi::zJson)
+            if (kod in 200..299 && json?.logika("success") != false && wpis != null) Wynik.Ok(wpis)
+            else if (kod == 413) Wynik.Blad("Plik za duży dla tunelu albo mostu (HTTP 413).")
+            else opiszBlad(kod, json, tekst)
+        } catch (e: IOException) {
+            Wynik.Blad("Wysyłka przerwana (${e.message ?: e.javaClass.simpleName}). Sprawdź zasięg i spróbuj jeszcze raz.", milczy = true)
+        } finally {
+            c.disconnect()
+        }
+    }
+
+    /** Plik wpisu (zdjęcie, ilustracja) do podglądu na telefonie — tylko nazwy z WpisKsiegi.PLIKI, z limitem rozmiaru. */
+    fun plikWpisu(token: String, id: String, plik: String, maxBajtow: Int = 30 * 1024 * 1024): Wynik<ByteArray> {
+        if (plik !in WpisKsiegi.PLIKI) return Wynik.Blad("Nie ma takiego pliku we wpisie.")
+        val c = (URL("$adres/api/zywa-ksiega/${sciezkaId(id)}/plik/$plik").openConnection() as HttpURLConnection)
+        return try {
+            c.connectTimeout = limitMs
+            c.readTimeout = 60_000
+            c.setRequestProperty("x-teo-klucz", klucz)
+            c.setRequestProperty("X-Stado-Token", token)
+            val kod = c.responseCode
+            if (kod !in 200..299) return Wynik.Blad("Most nie oddał pliku (HTTP $kod).")
+            val bufor = java.io.ByteArrayOutputStream()
+            c.inputStream.use { we ->
+                val porcja = ByteArray(64 * 1024)
+                while (true) {
+                    val n = we.read(porcja)
+                    if (n < 0) break
+                    bufor.write(porcja, 0, n)
+                    if (bufor.size() > maxBajtow) return Wynik.Blad("Plik większy niż ${maxBajtow / 1_048_576} MB.")
+                }
+            }
+            Wynik.Ok(bufor.toByteArray())
+        } catch (e: IOException) {
+            Wynik.Blad("Most milczy (${e.message ?: e.javaClass.simpleName}).", milczy = true)
+        } finally {
+            c.disconnect()
+        }
+    }
+
     private fun sciezkaId(id: String) =java.net.URLEncoder.encode(id, "UTF-8").replace("+", "%20")
 
     /**

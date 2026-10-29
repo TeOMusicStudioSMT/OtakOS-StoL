@@ -24,6 +24,7 @@ import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Psychology
@@ -70,6 +71,8 @@ import com.example.ui.stol.AgenciStada
 import com.example.ui.stol.FormularzKarty
 import com.example.ui.stol.HistoriaKatedry
 import com.example.ui.stol.IzbaAkceptacji
+import com.example.ui.stol.KsiegaEkran
+import com.example.ui.stol.KsiegaViewModel
 import com.example.ui.stol.KartaOtwarta
 import com.example.ui.stol.NieSparowany
 import com.example.ui.stol.PamiecKatedryEkran
@@ -84,7 +87,7 @@ import com.example.ui.tlumacz.tl
 /**
  * StoL: Stół ratyfikacji Katedry na marmurze z AI Studio — ale na prawdziwych danych z mostu.
  * 0 Stół · 1 Izba Akceptacji · 2 Historia · 3 Agenci (rozmowa przez Delegata, pamięć Katedry) · 4 Katedra (parowanie, stado, świat klocków)
- * · 5 TOST (rozmowy z innymi Katedrami przez własną Katedrę).
+ * · 5 TOST (rozmowy z innymi Katedrami przez własną Katedrę) · 6 📖 Żywa Księga (Iskra z telefonu: słowa, zdjęcie, film).
  */
 @Composable
 fun StolApp(
@@ -94,8 +97,11 @@ fun StolApp(
 ) {
     val ui by viewModel.ui.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
+    var snackbarTekst by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(snackbarTekst) { snackbarTekst?.let { snackbar.showSnackbar(it); snackbarTekst = null } }
     var oswietlenie by remember { mutableStateOf(TableLightingMode.PEARL_OPAL) }
     val cyklZycia = LocalLifecycleOwner.current
+    val ksiega: KsiegaViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
 
     // Stół żyje z mostu: co 10 s na zakładkach stołu, co 30 s gdzie indziej (zapowiedzi głosowe muszą
     // słyszeć koniec projektu także, gdy patrzysz na Katedrę) — tylko gdy apka jest na ekranie.
@@ -118,6 +124,16 @@ fun StolApp(
             }
         }
     }
+    // 📖 Księga: co 8 s, dopóki zakładka na ekranie (stado dopisuje słowo i obraz w kilka minut).
+    LaunchedEffect(ui.zakladka) {
+        if (ui.zakladka != 6) return@LaunchedEffect
+        cyklZycia.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                ksiega.odswiez()
+                delay(8_000)
+            }
+        }
+    }
     LaunchedEffect(ui.komunikat) {
         ui.komunikat?.let {
             snackbar.showSnackbar(it)
@@ -137,7 +153,7 @@ fun StolApp(
             containerColor = Color.Transparent,
             snackbarHost = { SnackbarHost(snackbar) },
             topBar = {
-                if (ui.zakladka != 4 && ui.zakladka != 5) {
+                if (ui.zakladka != 4 && ui.zakladka != 5 && ui.zakladka != 6) {
                     NaglowekStolu(ui.karty, glos = ui.glos, onGlos = { viewModel.przelaczGlos() }, onOswietlenie = {
                         oswietlenie = TableLightingMode.entries[(oswietlenie.ordinal + 1) % TableLightingMode.entries.size]
                     })
@@ -188,6 +204,7 @@ fun StolApp(
                         onPoloz = { viewModel.poloz(it) },
                         onAnuluj = { viewModel.pokazFormularz(false) }
                     )
+                    ui.zakladka == 6 -> KsiegaEkran(ksiega, onKomunikat = { snackbarTekst = it })
                     ui.zakladka == 5 && ui.tostZ != null -> TostWatek(
                         nick = ui.tostZ!!,
                         wiadomosci = ui.tostWatek,
@@ -349,6 +366,11 @@ private fun PasekZakladek(wybrana: Int, czeka: Int, tostNowe: Int, onWybierz: (I
                 else Icon(Icons.Default.Forum, contentDescription = tl("TOST"))
             },
             label = { Text(tl("TOST"), fontSize = 11.sp) }, modifier = Modifier.testTag("nav_tab_tost")
+        )
+        NavigationBarItem(
+            selected = wybrana == 6, onClick = { onWybierz(6) },
+            icon = { Icon(Icons.Default.AutoStories, contentDescription = tl("Żywa Księga")) },
+            label = { Text(tl("Księga"), fontSize = 11.sp) }, modifier = Modifier.testTag("nav_tab_ksiega")
         )
     }
 }
