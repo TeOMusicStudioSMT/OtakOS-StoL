@@ -334,7 +334,7 @@ private fun PasekZakladek(wybrana: Int, czeka: Int, tostNowe: Int, onWybierz: (I
         NavigationBarItem(
             selected = wybrana == 0, onClick = { onWybierz(0) },
             icon = { Icon(Icons.Default.TableRestaurant, contentDescription = tl("Stół")) },
-            label = { Text(tl("Stół"), fontSize = 11.sp) }, modifier = Modifier.testTag("nav_tab_table")
+            label = { EtykietaZakladki(tl("Stół")) }, modifier = Modifier.testTag("nav_tab_table")
         )
         NavigationBarItem(
             selected = wybrana == 1, onClick = { onWybierz(1) },
@@ -342,22 +342,22 @@ private fun PasekZakladek(wybrana: Int, czeka: Int, tostNowe: Int, onWybierz: (I
                 if (czeka > 0) BadgedBox(badge = { Badge { Text("$czeka") } }) { Icon(Icons.Default.Verified, contentDescription = tl("Izba Akceptacji")) }
                 else Icon(Icons.Default.Verified, contentDescription = tl("Izba Akceptacji"))
             },
-            label = { Text(tl("Izba"), fontSize = 11.sp) }, modifier = Modifier.testTag("nav_tab_ratification")
+            label = { EtykietaZakladki(tl("Izba")) }, modifier = Modifier.testTag("nav_tab_ratification")
         )
         NavigationBarItem(
             selected = wybrana == 2, onClick = { onWybierz(2) },
             icon = { Icon(Icons.Default.History, contentDescription = tl("Historia")) },
-            label = { Text(tl("Historia"), fontSize = 11.sp) }, modifier = Modifier.testTag("nav_tab_history")
+            label = { EtykietaZakladki(tl("Historia")) }, modifier = Modifier.testTag("nav_tab_history")
         )
         NavigationBarItem(
             selected = wybrana == 3, onClick = { onWybierz(3) },
             icon = { Icon(Icons.Default.Psychology, contentDescription = tl("Agenci")) },
-            label = { Text(tl("Agenci"), fontSize = 11.sp) }, modifier = Modifier.testTag("nav_tab_agents")
+            label = { EtykietaZakladki(tl("Agenci")) }, modifier = Modifier.testTag("nav_tab_agents")
         )
         NavigationBarItem(
             selected = wybrana == 4, onClick = { onWybierz(4) },
             icon = { Icon(Icons.Default.AccountBalance, contentDescription = tl("Katedra")) },
-            label = { Text(tl("Katedra"), fontSize = 11.sp) }, modifier = Modifier.testTag("nav_tab_katedra")
+            label = { EtykietaZakladki(tl("Katedra")) }, modifier = Modifier.testTag("nav_tab_katedra")
         )
         NavigationBarItem(
             selected = wybrana == 5, onClick = { onWybierz(5) },
@@ -365,12 +365,18 @@ private fun PasekZakladek(wybrana: Int, czeka: Int, tostNowe: Int, onWybierz: (I
                 if (tostNowe > 0) BadgedBox(badge = { Badge { Text("$tostNowe") } }) { Icon(Icons.Default.Forum, contentDescription = tl("TOST")) }
                 else Icon(Icons.Default.Forum, contentDescription = tl("TOST"))
             },
-            label = { Text(tl("TOST"), fontSize = 11.sp) }, modifier = Modifier.testTag("nav_tab_tost")
+            label = { EtykietaZakladki(tl("TOST")) }, modifier = Modifier.testTag("nav_tab_tost")
         )
         NavigationBarItem(
             selected = wybrana == 6, onClick = { onWybierz(6) },
             icon = { Icon(Icons.Default.AutoStories, contentDescription = tl("Żywa Księga")) },
-            label = { Text(tl("Księga"), fontSize = 11.sp) }, modifier = Modifier.testTag("nav_tab_ksiega")
+            label = { EtykietaZakladki(tl("Księga")) }, modifier = Modifier.testTag("nav_tab_ksiega")
         )
     }
+}
+
+/** Napis pod ikoną: jedna linia, mniejszy — przy 7 zakładkach „Historia” i „Katedra” łamały się (Suweren 2026-10-29). */
+@Composable
+private fun EtykietaZakladki(tekst: String) {
+    Text(tekst, fontSize = 9.sp, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Clip, letterSpacing = 0.sp)
 }
