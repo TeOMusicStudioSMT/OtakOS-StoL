@@ -4,6 +4,8 @@
 
     <!-- Most Katedry przez Kwantowy Tunel (https). Bez tego apka nie zapuka nigdzie. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 📯 Wieści z Katedry (ktoś wszedł na teo.center, poranny brief…) jako powiadomienia — Android 13+ pyta Suwerena. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:allowBackup="true"

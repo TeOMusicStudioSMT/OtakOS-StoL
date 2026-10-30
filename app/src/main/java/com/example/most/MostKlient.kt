@@ -205,6 +205,10 @@ class MostKlient(
 
     // ── 📖 Żywa Księga (most/Ksiega.kt) — wpisy Suwerena, słowo i obraz stada, zdjęcie i nagranie z telefonu ──
 
+    /** 📯 Wieści kanału Mistrza nowsze niż `od` (`GET /api/mistrz/wiesci`) — do powiadomień w tle. */
+    fun wiesci(token: String, od: Int): Wynik<Pair<List<Wiesc>, Int>> =
+        zapytaj("GET", "/api/mistrz/wiesci?od=${maxOf(0, od)}", null, mapOf("X-Stado-Token" to token)) { Wiesc.lista(it) to Wiesc.ostatni(it) }
+
     fun ksiega(token: String): Wynik<List<WpisKsiegi>> =
         zapytaj("GET", "/api/zywa-ksiega", null, mapOf("X-Stado-Token" to token), 20_000) { WpisKsiegi.lista(it) }
 
