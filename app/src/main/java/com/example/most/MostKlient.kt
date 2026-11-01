@@ -181,6 +181,46 @@ class MostKlient(
         return zapytaj("POST", if (zatwierdz) "/api/rejestr/zatwierdz" else "/api/rejestr/odrzuc", cialo, mapOf("X-Stado-Token" to token), 20_000) { }
     }
 
+    // ── 📥 Izba zgód (most/Izba.kt) — jedna lista ✓ ze wszystkich źródeł Katedry ──
+
+    /** Wszystkie sprawy czekające na Suwerena + źródła, których most nie odczytał (`GET /api/izba`). */
+    fun izba(token: String): Wynik<StanIzby> =
+        zapytaj("GET", "/api/izba", null, mapOf("X-Stado-Token" to token), 20_000) { StanIzby.zJson(it) }
+
+    /** Decyzja (`POST /api/izba/:zrodlo/:id/:akcja {powod}`); most sprawdza reguły źródła (np. akcje tylko przy Katedrze). */
+    fun izbaDecyzja(token: String, zrodlo: String, id: String, akcja: String, powod: String? = null): Wynik<Unit> {
+        val cialo = if (powod.isNullOrBlank()) "{}" else "{\"powod\":${jsonNapis(powod.trim().take(500))}}"
+        return zapytaj("POST", "/api/izba/${sciezkaId(zrodlo)}/${sciezkaId(id)}/${sciezkaId(akcja)}", cialo, mapOf("X-Stado-Token" to token), 30_000) { }
+    }
+
+    /** Podgląd sprawy (np. zrzut „teraz / po” z Warsztatu Stada) — `GET /api/izba/obraz/:zrodlo/:id/:nr`, z limitem rozmiaru. */
+    fun izbaObraz(token: String, zrodlo: String, id: String, nr: Int, maxBajtow: Int = 8 * 1024 * 1024): Wynik<ByteArray> {
+        val c = (URL("$adres/api/izba/obraz/${sciezkaId(zrodlo)}/${sciezkaId(id)}/$nr").openConnection() as HttpURLConnection)
+        return try {
+            c.connectTimeout = limitMs
+            c.readTimeout = 60_000
+            c.setRequestProperty("x-teo-klucz", klucz)
+            c.setRequestProperty("X-Stado-Token", token)
+            val kod = c.responseCode
+            if (kod !in 200..299) return Wynik.Blad("Most nie oddał podglądu (HTTP $kod).")
+            val bufor = java.io.ByteArrayOutputStream()
+            c.inputStream.use { we ->
+                val porcja = ByteArray(64 * 1024)
+                while (true) {
+                    val n = we.read(porcja)
+                    if (n < 0) break
+                    bufor.write(porcja, 0, n)
+                    if (bufor.size() > maxBajtow) return Wynik.Blad("Podgląd większy niż ${maxBajtow / 1_048_576} MB.")
+                }
+            }
+            Wynik.Ok(bufor.toByteArray())
+        } catch (e: IOException) {
+            Wynik.Blad("Most milczy (${e.message ?: e.javaClass.simpleName}).", milczy = true)
+        } finally {
+            c.disconnect()
+        }
+    }
+
     // ── 📺 Publikacje YouTube od stada (most/YouTube.kt) ──
 
     /** Publikacje przygotowane przez Kronikarza i ich etap (`GET /api/youtube/publikacje`). */

@@ -1,5 +1,11 @@
 package com.example.ui.stol
 
+import android.graphics.BitmapFactory
+import androidx.compose.foundation.Image
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.graphics.asImageBitmap
+import com.example.most.PozycjaIzby
+import com.example.most.StanIzby
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -49,8 +55,6 @@ import com.example.most.AkcjaStolu
 import com.example.most.Gatunek
 import com.example.most.KartaStolu
 import com.example.most.NowaKarta
-import com.example.most.OczekujacaKatedra
-import com.example.most.StanRejestru
 import com.example.most.PublikacjaYouTube
 import com.example.most.Rozmowca
 import com.example.most.RozmowaUi
@@ -190,63 +194,41 @@ fun StolEkran(karty: List<KartaStolu>, wczytano: Boolean, blad: String?, onOtwor
     }
 }
 
-/** Zakładka 1 — Izba Akceptacji: tylko to, co czeka na Suwerena (przyjąć propozycję albo zratyfikować Biblię). */
+/**
+ * Zakładka 1 — Izba Akceptacji: tylko to, co czeka na Suwerena. 📥 Sprawy z Izby zgód (`GET /api/izba` — YouTube, nowe Katedry,
+ * Warsztat Stada i kolejne źródła, jeden wzór karty) + karty Stołu do przyjęcia i ratyfikacji.
+ */
 @Composable
 fun IzbaAkceptacji(
     karty: List<KartaStolu>, wczytano: Boolean, blad: String?, onOtworz: (KartaStolu) -> Unit,
-    /** 🏛️ Katedry czekające na zatwierdzenie w sieci otakos.wtf — tylko gdy ta Katedra jest zarządcą rejestru. */
-    rejestr: StanRejestru? = null,
-    pracujeRejestr: Boolean = false,
-    onKatedra: (OczekujacaKatedra, Boolean) -> Unit = { _, _ -> },
-    /** 📺 Publikacje YouTube przygotowane przez Kronikarza. */
+    izba: StanIzby? = null,
+    pracujeIzba: Boolean = false,
+    podglady: Map<String, ByteArray> = emptyMap(),
+    onDecyzja: (PozycjaIzby, String, String?) -> Unit = { _, _, _ -> },
+    onPodglad: (PozycjaIzby, Int) -> Unit = { _, _ -> },
+    /** 📺 Notki o filmach prywatnych / z błędem (nie są decyzją, tylko informacją). */
     publikacjeYT: List<PublikacjaYouTube> = emptyList(),
-    pracujeYT: Boolean = false,
-    onPublikacja: (PublikacjaYouTube, Boolean) -> Unit = { _, _ -> },
 ) {
     val czeka = karty.filter { it.czekaNaSuwerena }
-    val katedry = rejestr?.takeIf { it.jestZarzadca }?.oczekujace.orEmpty()
-    val doYT = publikacjeYT.filter { it.czekaNaSuwerena }
+    val sprawy = izba?.pozycje.orEmpty()
+    val nieOdczytane = izba?.nieOdczytane.orEmpty()
     val prywatne = publikacjeYT.filter { it.etap == "prywatna" || it.etap == "blad" }
     LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
             Text(tl("Izba Akceptacji"), fontWeight = FontWeight.Bold, fontSize = 20.sp)
             Text(
-                tl("Propozycje czekają na przyjęcie (→ Projekt Stada), gotowe Biblie — na ratyfikację. Dopiero ratyfikacja uruchamia moduły Katedry."),
+                tl("Wszystko, co czeka na Twoje ✓ — w jednym miejscu. Karty Stołu: przyjęcie (→ Projekt Stada) i ratyfikacja Biblii."),
                 fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         item { Ostrzezenie(blad) }
-        if (katedry.isNotEmpty()) {
-            item { Text(tl("🏛️ Katedry do zatwierdzenia") + " · ${katedry.size}", fontWeight = FontWeight.SemiBold, color = Color(0xFFD97706)) }
-            items(katedry, key = { "katedra-" + it.nick + it.klucz }) { k ->
-                Marmur(akcent = Color(0xFFD97706)) {
-                    Text(k.nick, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                    val temu = czasIso(k.kiedy)?.let { ileTemu((System.currentTimeMillis() - it) / 1000) }
-                    Text(listOfNotNull(k.powod, temu?.let { "meldunek $it" }).joinToString(" · "), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("klucz: ${k.klucz.takeLast(16)}", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = { onKatedra(k, true) }, enabled = !pracujeRejestr) { Text(tl("✓ Zatwierdź na otakos.wtf")) }
-                        OutlinedButton(onClick = { onKatedra(k, false) }, enabled = !pracujeRejestr) { Text(tl("Odrzuć")) }
-                    }
-                }
-            }
+        items(nieOdczytane, key = { "nieodczytane-" + it.zrodlo }) { n ->
+            Text("🔇 " + tl("Nie odczytałem") + ": ${n.emoji} ${n.nazwa} — ${n.powod}", fontSize = 12.sp, color = Color(0xFFD97706))
         }
-        rejestr?.takeIf { it.jestZarzadca }?.blad?.let { b -> item { Text("Rejestr otakos.wtf: $b", fontSize = 12.sp, color = Color(0xFFD97706)) } }
-        if (doYT.isNotEmpty()) {
-            item { Text(tl("📺 Na YouTube") + " · ${doYT.size}", fontWeight = FontWeight.SemiBold, color = Color(0xFFDC2626)) }
-            items(doYT, key = { "yt-" + it.id }) { pub ->
-                Marmur(akcent = Color(0xFFDC2626)) {
-                    Text(pub.tytul, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                    Text(pub.nazwa, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    pub.kanalNazwa?.let { Text("→ kanał: $it", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFFDC2626)) }
-                    Text(pub.opis, fontSize = 13.sp, maxLines = 8, overflow = TextOverflow.Ellipsis)
-                    if (pub.tagi.isNotEmpty()) Text(pub.tagi.joinToString(" ") { "#$it" }, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(tl("Kronikarz to napisał. Poprawki tytułu, opisu i kanału — w Hubie (Impresariat). Film pójdzie jako niepubliczny."), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = { onPublikacja(pub, true) }, enabled = !pracujeYT) { Text(tl("✓ Wyślij na YouTube")) }
-                        OutlinedButton(onClick = { onPublikacja(pub, false) }, enabled = !pracujeYT) { Text(tl("Odrzuć")) }
-                    }
-                }
+        if (sprawy.isNotEmpty()) {
+            item { Text(tl("📥 Do decyzji") + " · ${sprawy.size}", fontWeight = FontWeight.SemiBold, color = Color(0xFF7C3AED)) }
+            items(sprawy, key = { "izba-" + it.zrodlo + "-" + it.id }) { poz ->
+                SprawaIzby(poz, pracujeIzba, podglady, onDecyzja, onPodglad)
             }
         }
         if (prywatne.isNotEmpty()) {
@@ -254,7 +236,7 @@ fun IzbaAkceptacji(
                 Text("📺 ${pub.tytul.ifBlank { pub.nazwa }} — ${pub.opisEtapu}${(pub.blad ?: pub.uwaga)?.let { ": $it" } ?: ""}", fontSize = 12.sp, color = Color(0xFFD97706))
             }
         }
-        if (czeka.isEmpty() && katedry.isEmpty() && doYT.isEmpty() && wczytano) item { Pusto("Nic nie czeka", "Wszystkie karty są w pracy stada albo już zdecydowane.") }
+        if (czeka.isEmpty() && sprawy.isEmpty() && wczytano) item { Pusto("Nic nie czeka", "Wszystkie karty są w pracy stada albo już zdecydowane.") }
         val (ratyfikacja, przyjecie) = czeka.partition { it.moznaRatyfikowac }
         if (ratyfikacja.isNotEmpty()) {
             item { Text(tl("Do ratyfikacji") + " · ${ratyfikacja.size}", fontWeight = FontWeight.SemiBold, color = kolor("do_akceptacji")) }
@@ -264,6 +246,44 @@ fun IzbaAkceptacji(
             item { Text(tl("Do przyjęcia") + " · ${przyjecie.size}", fontWeight = FontWeight.SemiBold, color = kolor("na_stole")) }
             items(przyjecie, key = { it.id }) { k -> KartaNaStole(k) { onOtworz(k) } }
         }
+    }
+}
+
+/** Jedna sprawa Izby: źródło, tytuł, opis, podglądy, akcje (bez `zdalnie` — wyszarzona: decyzja tylko przy Katedrze). */
+@Composable
+private fun SprawaIzby(
+    poz: PozycjaIzby, pracuje: Boolean, podglady: Map<String, ByteArray>,
+    onDecyzja: (PozycjaIzby, String, String?) -> Unit, onPodglad: (PozycjaIzby, Int) -> Unit,
+) {
+    var powod by remember(poz.zrodlo, poz.id) { mutableStateOf("") }
+    val akcent = if (poz.pilne) Color(0xFFDC2626) else Color(0xFF7C3AED)
+    Marmur(akcent = akcent) {
+        Text("${poz.emoji} ${poz.nazwaZrodla}", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = akcent)
+        Text(poz.tytul, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+        val temu = czasIso(poz.kiedy)?.let { ileTemu((System.currentTimeMillis() - it) / 1000) }
+        temu?.let { Text(it, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        if (poz.opis.isNotBlank()) Text(poz.opis, fontSize = 13.sp, maxLines = 8, overflow = TextOverflow.Ellipsis)
+        if (poz.obrazy > 0) Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            for (nr in 0 until minOf(poz.obrazy, 3)) {
+                val bajty = podglady["${poz.zrodlo}|${poz.id}|$nr"]
+                LaunchedEffect(poz.zrodlo, poz.id, nr) { onPodglad(poz, nr) }
+                val obraz = remember(bajty) { bajty?.let { BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap() } }
+                if (obraz != null) Image(bitmap = obraz, contentDescription = null, modifier = Modifier.weight(1f).clip(RoundedCornerShape(6.dp)))
+                else Box(Modifier.weight(1f).size(80.dp).clip(RoundedCornerShape(6.dp)).background(MaterialTheme.colorScheme.surfaceVariant))
+            }
+        }
+        if (poz.akcje.any { it.id == "odrzuc" }) OutlinedTextField(
+            value = powod, onValueChange = { powod = it.take(500) }, singleLine = true,
+            label = { Text(tl("powód (opcjonalnie)"), fontSize = 11.sp) }, modifier = Modifier.fillMaxWidth(),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            for (a in poz.akcje) {
+                val klik = { onDecyzja(poz, a.id, powod.takeIf { it.isNotBlank() }) }
+                if (a.id == "przyjmij") Button(onClick = klik, enabled = !pracuje && a.zdalnie) { Text(a.etykieta) }
+                else OutlinedButton(onClick = klik, enabled = !pracuje && a.zdalnie) { Text(a.etykieta) }
+            }
+        }
+        if (poz.akcje.any { !it.zdalnie }) Text(tl("🏛️ Część decyzji tylko przy Katedrze (koszt albo GPU) — zatwierdź w Hubie."), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

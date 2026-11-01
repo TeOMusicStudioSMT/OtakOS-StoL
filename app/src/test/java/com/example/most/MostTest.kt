@@ -500,3 +500,27 @@ class OdnajdywanieTest {
         assertEquals(ZrodloAdresu.REJESTR, ZrodloAdresu.zNazwy("REJESTR"))
     }
 }
+
+class IzbaTest {
+    @Suppress("UNCHECKED_CAST")
+    @Test fun parsujeSprawyNieodczytaneIAkcjeZdalnie() {
+        val json = """{"success":true,"pozycje":[
+            {"zrodlo":"youtube","emoji":"📺","nazwaZrodla":"Publikacje YouTube","id":"yt_1","tytul":"Odc. 4","opis":"Kanał: TeO","kiedy":"2026-11-01T10:00:00.000Z","pilne":false,"obrazy":0,
+             "akcje":[{"id":"przyjmij","etykieta":"✓ wyślij","zdalnie":true},{"id":"odrzuc","etykieta":"✕","zdalnie":true}]},
+            {"zrodlo":"warsztat","id":"w-1","tytul":"Woda","obrazy":2,"pilne":true,"akcje":[{"id":"przyjmij","etykieta":"✓ (GPU)"},{"id":""}]},
+            {"zrodlo":"","id":"bez-zrodla"}],
+          "nieOdczytane":[{"zrodlo":"rejestr","emoji":"🏛️","nazwa":"Nowe Katedry","powod":"brak odpowiedzi w 3 s"}],
+          "zrodla":[{"id":"youtube"},{"id":"rejestr"},{"id":"warsztat"}]}"""
+        val s = StanIzby.zJson(Json.parsuj(json) as Map<String, Any?>)
+        assertEquals(listOf("yt_1", "w-1"), s.pozycje.map { it.id })
+        assertTrue(s.pozycje[0].akcje.all { it.zdalnie })
+        val w = s.pozycje[1]
+        assertEquals(2, w.obrazy)
+        assertTrue(w.pilne)
+        assertEquals("📌", w.emoji)
+        assertEquals(1, w.akcje.size)
+        assertTrue(!w.akcje[0].zdalnie)
+        assertEquals("brak odpowiedzi w 3 s", s.nieOdczytane.single().powod)
+        assertEquals(listOf("youtube", "rejestr", "warsztat"), s.zrodla)
+    }
+}

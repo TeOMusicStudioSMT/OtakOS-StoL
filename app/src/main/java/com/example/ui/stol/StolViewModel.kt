@@ -11,9 +11,9 @@ import com.example.most.KartaStolu
 import com.example.most.KontaktyTost
 import com.example.most.MostKlient
 import com.example.most.NowaKarta
-import com.example.most.OczekujacaKatedra
-import com.example.most.StanRejestru
 import com.example.most.PublikacjaYouTube
+import com.example.most.PozycjaIzby
+import com.example.most.StanIzby
 import com.example.most.PamiecKatedry
 import com.example.most.Rozmowca
 import com.example.most.RozmowaUi
@@ -73,12 +73,13 @@ data class StolUiState(
     val tostZ: String? = null,
     val tostWatek: List<WiadomoscTost> = emptyList(),
     val tostWysyla: Boolean = false,
-    /** 🏛️ Zatwierdzanie Katedr (tylko gdy ta Katedra jest zarządcą rejestru otakos.wtf) — w Izbie Akceptacji. */
-    val rejestr: StanRejestru? = null,
-    val pracujeRejestr: Boolean = false,
-    /** 📺 Publikacje YouTube od Kronikarza — „do akceptacji” w Izbie. */
+    /** 📺 Publikacje YouTube — w Izbie tylko notki o filmach prywatnych / z błędem (decyzje idą przez Izbę zgód). */
     val publikacjeYT: List<PublikacjaYouTube> = emptyList(),
-    val pracujeYT: Boolean = false,
+    /** 📥 Izba zgód — jedna lista ✓ ze wszystkich źródeł Katedry (`GET /api/izba`); zastępuje osobne sekcje YouTube i rejestru. */
+    val izba: StanIzby? = null,
+    val pracujeIzba: Boolean = false,
+    /** Podglądy spraw („teraz / po”) pobrane z mostu: klucz `zrodlo|id|nr`. */
+    val podgladyIzby: Map<String, ByteArray> = emptyMap(),
 )
 
 
@@ -133,8 +134,8 @@ class StolViewModel(application: Application) : AndroidViewModel(application) {
             val stan = async { k.stan(p.token) }
             // Rozmówcy Delegata zmieniają się rzadko (nowa karta roli w Katedrze) — dociągamy, dopóki lista pusta.
             val rozmowcy = if (_ui.value.rozmowcy.isEmpty()) async { k.rozmowcy(p.token) } else null
-            val rejestr = async { k.rejestrStan(p.token) }
-            val publikacjeYT = async { k.youtubePublikacje(p.token) }
+            val izba = async { k.izba(p.token) }
+            val publikacjeYT = async { k.youtubePublikacje(p.token) }   // tylko notki o filmach prywatnych/z błędem
             val wk = karty.await()
             val wz = zdarzenia.await()
             val ws = stan.await()
@@ -152,7 +153,7 @@ class StolViewModel(application: Application) : AndroidViewModel(application) {
                     zdarzenia = (wz as? MostKlient.Wynik.Ok)?.wartosc ?: u.zdarzenia,
                     gatunki = (ws as? MostKlient.Wynik.Ok)?.wartosc?.gatunki ?: u.gatunki,
                     rozmowcy = (rozmowcy?.await() as? MostKlient.Wynik.Ok)?.wartosc ?: u.rozmowcy,
-                    rejestr = (rejestr.await() as? MostKlient.Wynik.Ok)?.wartosc ?: u.rejestr,
+                    izba = (izba.await() as? MostKlient.Wynik.Ok)?.wartosc ?: u.izba,
                     publikacjeYT = (publikacjeYT.await() as? MostKlient.Wynik.Ok)?.wartosc ?: u.publikacjeYT,
                     blad = (wk as? MostKlient.Wynik.Blad)?.let(::opisBledu),
                 )
@@ -329,33 +330,29 @@ class StolViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** ✓ / ✕ publikacji YouTube — ✓ oddaje film Impresariatowi (niepubliczny). */
-    fun decyzjaPublikacji(pub: PublikacjaYouTube, zatwierdz: Boolean) {
+    /** 📥 Decyzja w Izbie zgód — ta sama droga dla każdego źródła (YouTube, rejestr Katedr, Warsztat Stada…). */
+    fun decyzjaIzby(poz: PozycjaIzby, akcja: String, powod: String? = null) {
         val p = store.wczytaj() ?: return
-        _ui.update { it.copy(pracujeYT = true) }
+        _ui.update { it.copy(pracujeIzba = true) }
         viewModelScope.launch {
-            val w = withContext(Dispatchers.IO) { MostKlient(p.adres, p.klucz).youtubeDecyzja(p.token, pub.id, zatwierdz) }
+            val w = withContext(Dispatchers.IO) { MostKlient(p.adres, p.klucz).izbaDecyzja(p.token, poz.zrodlo, poz.id, akcja, powod) }
             val zdanie = when (w) {
-                is MostKlient.Wynik.Ok -> if (zatwierdz) "„${pub.tytul}” idzie na YouTube (niepubliczny)." else "„${pub.tytul}” odrzucona."
+                is MostKlient.Wynik.Ok -> "${poz.emoji} „${poz.tytul}” — ${poz.akcje.firstOrNull { it.id == akcja }?.etykieta ?: akcja}"
                 is MostKlient.Wynik.Blad -> opisBledu(w)
             }
-            _ui.update { u -> u.copy(pracujeYT = false, komunikat = zdanie, publikacjeYT = if (w is MostKlient.Wynik.Ok) u.publikacjeYT.filter { it.id != pub.id } else u.publikacjeYT) }
+            _ui.update { u -> u.copy(pracujeIzba = false, komunikat = zdanie, izba = if (w is MostKlient.Wynik.Ok) u.izba?.let { s -> s.copy(pozycje = s.pozycje.filter { it.zrodlo != poz.zrodlo || it.id != poz.id }) } else u.izba) }
             odswiez()
         }
     }
 
-    /** Zatwierdź / odrzuć Katedrę w sieci otakos.wtf — Katedra zarządcy wyśle podpisaną listę do rejestru. */
-    fun decyzjaKatedry(k: OczekujacaKatedra, zatwierdz: Boolean) {
+    /** Podgląd sprawy z mostu (raz; trzymany w stanie, dopóki sprawa jest na liście). */
+    fun podgladIzby(poz: PozycjaIzby, nr: Int) {
+        val klucz = "${poz.zrodlo}|${poz.id}|$nr"
+        if (_ui.value.podgladyIzby.containsKey(klucz)) return
         val p = store.wczytaj() ?: return
-        _ui.update { it.copy(pracujeRejestr = true) }
-        viewModelScope.launch {
-            val w = withContext(Dispatchers.IO) { MostKlient(p.adres, p.klucz).rejestrDecyzja(p.token, k, zatwierdz) }
-            val zdanie = when (w) {
-                is MostKlient.Wynik.Ok -> if (zatwierdz) "„${k.nick}” zatwierdzona — pojawi się na otakos.wtf." else "„${k.nick}” odrzucona."
-                is MostKlient.Wynik.Blad -> opisBledu(w)
-            }
-            _ui.update { u -> u.copy(pracujeRejestr = false, komunikat = zdanie, rejestr = if (w is MostKlient.Wynik.Ok) u.rejestr?.let { r -> r.copy(oczekujace = r.oczekujace.filter { it != k }) } else u.rejestr) }
-            odswiez()
+        viewModelScope.launch(Dispatchers.IO) {
+            val w = MostKlient(p.adres, p.klucz).izbaObraz(p.token, poz.zrodlo, poz.id, nr)
+            if (w is MostKlient.Wynik.Ok) _ui.update { u -> u.copy(podgladyIzby = u.podgladyIzby + (klucz to w.wartosc)) }
         }
     }
 
