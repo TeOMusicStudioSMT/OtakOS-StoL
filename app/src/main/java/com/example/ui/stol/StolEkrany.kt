@@ -260,7 +260,7 @@ private fun SprawaIzby(
     Marmur(akcent = akcent) {
         Text("${poz.emoji} ${poz.nazwaZrodla}", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = akcent)
         Text(poz.tytul, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-        val temu = czasIso(poz.kiedy)?.let { ileTemu((System.currentTimeMillis() - it) / 1000) }
+        val temu = poz.kiedy?.let(::czasIso)?.let { ileTemu((System.currentTimeMillis() - it) / 1000) }
         temu?.let { Text(it, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         if (poz.opis.isNotBlank()) Text(poz.opis, fontSize = 13.sp, maxLines = 8, overflow = TextOverflow.Ellipsis)
         if (poz.obrazy > 0) Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
