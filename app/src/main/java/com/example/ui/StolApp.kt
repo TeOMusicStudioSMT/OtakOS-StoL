@@ -144,6 +144,9 @@ fun StolApp(
     BackHandler(enabled = ui.formularz && !ui.pracuje) { viewModel.pokazFormularz(false) }
     // Narada przy karcie Stołu (rozmowa.karta) nie otwiera się w zakładce Agenci — tam tylko zwykła rozmowa.
     val rozmowaAgentow = ui.rozmowa?.takeIf { it.karta == null }
+    // 🪑 Kwantowy Stół Narad otwarty w zakładce Agenci (WebView strony mostu /stol/)
+    var stolNarad by remember { mutableStateOf(false) }
+    BackHandler(enabled = ui.zakladka == 3 && rozmowaAgentow == null && !ui.pamiecOtwarta && stolNarad) { stolNarad = false }
     BackHandler(enabled = ui.zakladka == 3 && rozmowaAgentow != null) { viewModel.zamknijRozmowe() }
     BackHandler(enabled = ui.zakladka == 3 && rozmowaAgentow == null && ui.pamiecOtwarta) { viewModel.pokazPamiec(false) }
     BackHandler(enabled = ui.zakladka == 5 && ui.tostZ != null) { viewModel.zamknijTost() }
@@ -242,12 +245,17 @@ fun StolApp(
                         onZamknijProces = { viewModel.zwolnij(it) },
                         onWroc = { viewModel.pokazPamiec(false) }
                     )
+                    ui.zakladka == 3 && stolNarad -> com.example.ui.katedra.StolNaradWeb(
+                        adres = remember { katedraViewModel.adresStoluNarad() },
+                        onWroc = { stolNarad = false }
+                    )
                     ui.zakladka == 3 -> AgenciStada(
                         gatunki = ui.gatunki,
                         wczytano = ui.wczytano,
                         rozmowcy = ui.rozmowcy,
                         onRozmowa = { viewModel.otworzRozmowe(it) },
-                        onPamiec = { viewModel.pokazPamiec(true) }
+                        onPamiec = { viewModel.pokazPamiec(true) },
+                        onStolNarad = { stolNarad = true }
                     )
                 }
             }

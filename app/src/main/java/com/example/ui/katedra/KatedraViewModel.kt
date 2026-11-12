@@ -273,6 +273,9 @@ class KatedraViewModel(application: Application) : AndroidViewModel(application)
     /** Adres świata klocków dla WebView — albo null, gdy telefon nie jest sparowany. */
     fun adresSwiata(): String? = store.wczytaj()?.let { com.example.most.adresSwiata(it.adres, it.klucz, it.token, com.example.ui.tlumacz.TlumaczStoL.jezyk) }
 
+    /** Adres Kwantowego Stołu Narad dla WebView (zakładka Agenci) — albo null, gdy telefon nie jest sparowany. */
+    fun adresStoluNarad(): String? = store.wczytaj()?.let { com.example.most.adresStoluNarad(it.adres, it.klucz, it.token) }
+
     fun rozparuj() {
         zatrzymajObserwacje()
         store.zapomnij()

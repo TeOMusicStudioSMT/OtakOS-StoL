@@ -324,6 +324,7 @@ fun AgenciStada(
     rozmowcy: List<Rozmowca> = emptyList(),
     onRozmowa: (Rozmowca) -> Unit = {},
     onPamiec: () -> Unit = {},
+    onStolNarad: (() -> Unit)? = null,
 ) {
     val lista = gatunki.sortedWith(compareByDescending<Gatunek> { it.wyklute }.thenByDescending { it.xp })
     LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -332,6 +333,19 @@ fun AgenciStada(
             Text(tl("To oni opracowują karty ze stołu — każdy na swoim modelu, w swojej dziedzinie. Stuknij, by porozmawiać."), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         item { DelegatPasek(rozmowcy, onRozmowa, onPamiec) }
+        // 🪑 Kwantowy Stół Narad — strona mostu /stol/ (Rada, pamięć Stołu, kampania Jasona)
+        if (onStolNarad != null) item {
+            Marmur(onClick = onStolNarad) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("🪑", fontSize = 26.sp)
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(tl("Kwantowy Stół Narad"), fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        Text(tl("Rada Katedry przy jednym stole: narada, pamięć zadań i zlecenia dla Jasona."), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        }
         if (lista.isEmpty() && wczytano) item { Pusto("Stado milczy", "Katedra nie opublikowała jeszcze migawki stada.") }
         items(lista, key = { it.id }) { g ->
             // Rozmówca Delegata pasuje po id gatunku albo imieniu — wtedy karta agenta otwiera rozmowę.

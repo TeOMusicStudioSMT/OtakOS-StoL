@@ -32,6 +32,13 @@ fun adresSwiata(adres: String, klucz: String, token: String, jezyk: String? = nu
     "${adres.trimEnd('/')}/swiat/#k=${URLEncoder.encode(klucz, "UTF-8")}&t=${URLEncoder.encode(token, "UTF-8")}" +
         (FiltrTlumacza.kodJezyka(jezyk)?.let { "&jezyk=$it" } ?: "")
 
+/**
+ * Adres Kwantowego Stołu Narad (strona mostu `/stol/`, WebView w zakładce Agenci). Klucz i token we FRAGMENCIE —
+ * jak w świecie klocków: nie wychodzą w żądaniu HTTP, strona sama dokłada je do zapytań (x-teo-klucz, X-Stado-Token).
+ */
+fun adresStoluNarad(adres: String, klucz: String, token: String): String =
+    "${adres.trimEnd('/')}/stol/#k=${URLEncoder.encode(klucz, "UTF-8")}&t=${URLEncoder.encode(token, "UTF-8")}"
+
 data class LinkParowania(val adres: String, val klucz: String, val kod: String) {
 
     fun doTekstu(): String =

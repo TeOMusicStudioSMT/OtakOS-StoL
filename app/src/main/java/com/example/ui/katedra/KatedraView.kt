@@ -229,6 +229,19 @@ private fun SwiatKlockow(adres: String, modifier: Modifier = Modifier) {
     )
 }
 
+/**
+ * 🪑 Kwantowy Stół Narad z mostu (`/stol/`) w zakładce Agenci: Rada (Jason, Adamus, Bella, BoB, Kronikarz, Jadziunia, Oddi),
+ * pamięć Stołu (/api/stol/pamiec) i zlecenie kampanii Jasonowi. Ta sama strona co przy Katedrze — nic nie jest liczone w telefonie.
+ */
+@Composable
+fun StolNaradWeb(adres: String?, onWroc: () -> Unit, modifier: Modifier = Modifier) {
+    Column(modifier.fillMaxSize()) {
+        OutlinedButton(onClick = onWroc, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) { Text(tl("← Agenci")) }
+        if (adres == null) Text(tl("Telefon nie jest sparowany z Katedrą — sparuj go w zakładce Katedra."), modifier = Modifier.padding(16.dp))
+        else SwiatKlockow(adres, Modifier.fillMaxWidth().weight(1f))
+    }
+}
+
 @Composable
 private fun KartaTeogochi(g: Gatunek) {
     val kolor = remember(g.kolor) { kolorZHex(g.kolor) }
